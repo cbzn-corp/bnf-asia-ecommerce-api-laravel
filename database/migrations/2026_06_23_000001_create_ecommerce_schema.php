@@ -245,6 +245,9 @@ return new class extends Migration
             $table->boolean('paymongoGcashEnabled')->default(true);
             $table->boolean('paymongoMayaEnabled')->default(true);
             $table->boolean('pricesIncludeVat')->default(false);
+            $table->boolean('customerChatEnabled')->default(true);
+            $table->boolean('maintenanceModeEnabled')->default(false);
+            $table->text('maintenanceMessage')->nullable();
             $table->string('abandonedCartDiscountCode')->nullable();
             $table->timestamp('updatedAt', 3)->useCurrent();
         });
@@ -339,6 +342,7 @@ return new class extends Migration
             $table->string('key')->primary();
             $table->string('subject');
             $table->text('bodyText');
+            $table->text('bodyHtml')->nullable();
             $table->timestamp('updatedAt', 3)->useCurrent();
         });
 

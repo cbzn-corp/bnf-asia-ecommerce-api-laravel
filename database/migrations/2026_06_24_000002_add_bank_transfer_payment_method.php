@@ -11,9 +11,11 @@ return new class extends Migration
     {
         DB::statement("ALTER TYPE \"PaymentMethod\" ADD VALUE IF NOT EXISTS 'BANK_TRANSFER'");
 
-        Schema::table('PlatformSetting', function (Blueprint $table) {
-            $table->boolean('bankTransferEnabled')->default(true);
-        });
+        if (! Schema::hasColumn('PlatformSetting', 'bankTransferEnabled')) {
+            Schema::table('PlatformSetting', function (Blueprint $table) {
+                $table->boolean('bankTransferEnabled')->default(true);
+            });
+        }
     }
 
     public function down(): void

@@ -8,9 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('PlatformSetting', function (Blueprint $table) {
-            $table->boolean('customerChatEnabled')->default(true);
-        });
+        if (! Schema::hasColumn('PlatformSetting', 'customerChatEnabled')) {
+            Schema::table('PlatformSetting', function (Blueprint $table) {
+                $table->boolean('customerChatEnabled')->default(true);
+            });
+        }
     }
 
     public function down(): void

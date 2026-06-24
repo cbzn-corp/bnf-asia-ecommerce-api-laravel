@@ -8,14 +8,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('PlatformSetting', function (Blueprint $table) {
-            $table->boolean('maintenanceModeEnabled')->default(false);
-            $table->text('maintenanceMessage')->nullable();
-        });
+        if (! Schema::hasColumn('PlatformSetting', 'maintenanceModeEnabled')) {
+            Schema::table('PlatformSetting', function (Blueprint $table) {
+                $table->boolean('maintenanceModeEnabled')->default(false);
+            });
+        }
 
-        Schema::table('EmailTemplate', function (Blueprint $table) {
-            $table->text('bodyHtml')->nullable();
-        });
+        if (! Schema::hasColumn('PlatformSetting', 'maintenanceMessage')) {
+            Schema::table('PlatformSetting', function (Blueprint $table) {
+                $table->text('maintenanceMessage')->nullable();
+            });
+        }
+
+        if (! Schema::hasColumn('EmailTemplate', 'bodyHtml')) {
+            Schema::table('EmailTemplate', function (Blueprint $table) {
+                $table->text('bodyHtml')->nullable();
+            });
+        }
     }
 
     public function down(): void
