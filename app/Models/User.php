@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Config\Permissions;
 use App\Models\Concerns\HasCuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -69,7 +70,7 @@ class User extends Authenticatable implements JWTSubject
             'roleKey' => $this->role?->key,
             'roleName' => $this->role?->name,
             'isStaff' => (bool) $this->role?->isStaff,
-            'permissions' => $this->role?->permissions ?? [],
+            'permissions' => Permissions::sanitizePermissions(array_values($this->role?->permissions ?? [])),
         ];
     }
 

@@ -451,7 +451,7 @@ class AuthService
             roleKey: (string) $role?->key,
             roleName: (string) $role?->name,
             isStaff: (bool) $role?->isStaff,
-            permissions: array_values($role?->permissions ?? []),
+            permissions: Permissions::sanitizePermissions(array_values($role?->permissions ?? [])),
         );
     }
 
