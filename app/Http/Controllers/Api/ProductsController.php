@@ -110,15 +110,21 @@ class ProductsController extends Controller
 
     public function uploadVariantImages(Request $request, string $variantId): JsonResponse
     {
+        $files = $request->file('images', []);
+        $files = is_array($files) ? $files : [$files];
+
         return response()->json(
-            $this->productsService->uploadVariantImages($variantId, $request->file('images', [])),
+            $this->productsService->uploadVariantImages($variantId, $files),
         );
     }
 
     public function uploadImages(Request $request, string $id): JsonResponse
     {
+        $files = $request->file('images', []);
+        $files = is_array($files) ? $files : [$files];
+
         return response()->json(
-            $this->productsService->uploadImages($id, $request->file('images', [])),
+            $this->productsService->uploadImages($id, $files),
         );
     }
 
