@@ -12,7 +12,7 @@ class StockAlert extends Model
 
     protected $table = 'StockAlert';
 
-    public $snakeAttributes = false;
+    public static $snakeAttributes = false;
 
     public $incrementing = false;
 
