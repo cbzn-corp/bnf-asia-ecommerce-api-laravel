@@ -111,6 +111,11 @@ class ContentService
     {
         $current = $this->getStorefrontSettings();
 
+        // Ensure pdpFreeShippingNote is null when empty string
+        if (array_key_exists('pdpFreeShippingNote', $dto) && $dto['pdpFreeShippingNote'] === '') {
+            $dto['pdpFreeShippingNote'] = null;
+        }
+
         $merged = StorefrontUtils::normalizeStorefrontSettings([
             ...$current,
             ...$dto,
