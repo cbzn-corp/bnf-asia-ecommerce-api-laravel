@@ -6,12 +6,12 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_filter(array_unique([
+    'allowed_origins' => [
         'http://localhost:3000',
         'http://localhost:3001',
         env('STOREFRONT_URL'),
-        env('ADMIN_URL'),
-    ]))),
+        env('ADMIN_URL')
+    ],
 
     'allowed_origins_patterns' => [],
 
