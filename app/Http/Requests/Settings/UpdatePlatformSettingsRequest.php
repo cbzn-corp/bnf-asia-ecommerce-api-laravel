@@ -40,6 +40,8 @@ class UpdatePlatformSettingsRequest extends FormRequest
             'checkoutOrderNotesEnabled' => ['sometimes', 'boolean'],
             'guestCheckoutEnabled' => ['sometimes', 'boolean'],
             'compareEnabled' => ['sometimes', 'boolean'],
+            'reviewsEnabled' => ['sometimes', 'boolean'],
+            'reviewsSubmissionEnabled' => ['sometimes', 'boolean'],
             'codEnabled' => ['sometimes', 'boolean'],
             'bankTransferEnabled' => ['sometimes', 'boolean'],
             'paymongoGcashEnabled' => ['sometimes', 'boolean'],
