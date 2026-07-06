@@ -165,7 +165,9 @@ final class StorefrontUtils
       'productTrustBullets' => is_array($value['productTrustBullets'] ?? null)
         ? array_values(array_filter(array_map(static fn ($item) => trim((string) $item), $value['productTrustBullets'])))
         : $defaults['productTrustBullets'],
-      'pdpFreeShippingNote' => (string) ($value['pdpFreeShippingNote'] ?? $defaults['pdpFreeShippingNote']),
+      'pdpFreeShippingNote' => array_key_exists('pdpFreeShippingNote', $value)
+        ? (($note = trim((string) ($value['pdpFreeShippingNote'] ?? ''))) !== '' ? $note : null)
+        : (string) $defaults['pdpFreeShippingNote'],
       'promoBar' => (string) ($value['promoBar'] ?? $defaults['promoBar']),
       'phone' => (string) ($value['phone'] ?? $defaults['phone']),
       'listingPages' => self::normalizeListingPages($value['listingPages'] ?? null),

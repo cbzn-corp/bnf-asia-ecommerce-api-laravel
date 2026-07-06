@@ -111,9 +111,9 @@ class ContentService
     {
         $current = $this->getStorefrontSettings();
 
-        // Ensure pdpFreeShippingNote is null when empty string
-        if (array_key_exists('pdpFreeShippingNote', $dto) && $dto['pdpFreeShippingNote'] === '') {
-            $dto['pdpFreeShippingNote'] = null;
+        // Clear optional PDP copy when the admin sends blank text.
+        if (array_key_exists('pdpFreeShippingNote', $dto)) {
+            $dto['pdpFreeShippingNote'] = trim((string) ($dto['pdpFreeShippingNote'] ?? '')) ?: null;
         }
 
         $merged = StorefrontUtils::normalizeStorefrontSettings([

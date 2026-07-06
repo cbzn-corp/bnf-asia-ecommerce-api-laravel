@@ -119,7 +119,7 @@ final class StorefrontDefaults
         '30-day hassle-free returns',
         '0% installment options available',
       ],
-      'pdpFreeShippingNote' => 'Free nationwide delivery on orders over ₱50,000',
+      'pdpFreeShippingNote' => '',
       'promoBar' => 'FREE DELIVERY NATIONWIDE · 5-YEAR WARRANTY · EASY 0% INSTALLMENT',
       'phone' => '+63 2 8888 0000',
       'listingPages' => self::listingPages(),
