@@ -38,6 +38,7 @@ class PlatformSettingsService
                 'paymongoGcashEnabled' => true,
                 'paymongoMayaEnabled' => true,
                 'pricesIncludeVat' => false,
+                'deliveryFeeAtCheckoutEnabled' => true,
             ],
         );
     }
@@ -88,6 +89,7 @@ class PlatformSettingsService
                 'bankTransferEnabled' => $row->bankTransferEnabled,
                 'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
                 'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
+                'deliveryFeeAtCheckoutEnabled' => $row->deliveryFeeAtCheckoutEnabled !== false,
                 'paymentTestMode' => PaymentMethods::isPaymentGatewayTestMode([
                     ...AppSecrets::getPaymentSecretKeys(),
                     'paymongoEnabled' => $row->paymongoEnabled,
@@ -95,8 +97,39 @@ class PlatformSettingsService
                 ]),
                 'maintenanceModeEnabled' => (bool) $row->maintenanceModeEnabled,
                 'maintenanceMessage' => $row->maintenanceMessage,
+                'maintenanceWhitelistIps' => $this->parseMaintenanceWhitelistIps($row->maintenanceWhitelistIps),
             ];
         });
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function parseMaintenanceWhitelistIps(?string $raw): array
+    {
+        if ($raw === null || trim($raw) === '') {
+            return [];
+        }
+
+        $ips = [];
+        foreach (preg_split('/[\r\n,]+/', $raw) as $line) {
+            $ip = trim((string) $line);
+            if ($ip !== '' && filter_var($ip, FILTER_VALIDATE_IP)) {
+                $ips[] = $ip;
+            }
+        }
+
+        return array_values(array_unique($ips));
+    }
+
+    public function validateMaintenanceBypassKey(?string $key): bool
+    {
+        $secret = $this->getRaw()->maintenanceBypassSecret;
+        if ($secret === null || $secret === '') {
+            return false;
+        }
+
+        return hash_equals($secret, (string) $key);
     }
 
     /**
@@ -159,6 +192,8 @@ class PlatformSettingsService
                 'compareEnabled' => $row->compareEnabled,
                 'maintenanceModeEnabled' => (bool) $row->maintenanceModeEnabled,
                 'maintenanceMessage' => $row->maintenanceMessage,
+                'maintenanceWhitelistIps' => $row->maintenanceWhitelistIps ?? '',
+                'maintenanceBypassSecret' => $row->maintenanceBypassSecret,
             ],
             'store' => [
                 'name' => $row->storeName,
@@ -174,6 +209,7 @@ class PlatformSettingsService
                 'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
                 'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
                 'pricesIncludeVat' => $row->pricesIncludeVat,
+                'deliveryFeeAtCheckoutEnabled' => $row->deliveryFeeAtCheckoutEnabled !== false,
             ],
             'payments' => [
                 'codEnabled' => $row->codEnabled,
@@ -205,7 +241,8 @@ class PlatformSettingsService
             'lowStockThreshold', 'supportAssistedCheckoutEnabled', 'customerChatEnabled', 'quoteStaleAlertDays',
             'checkoutOrderNotesEnabled', 'guestCheckoutEnabled', 'compareEnabled',
             'codEnabled', 'bankTransferEnabled', 'paymongoGcashEnabled', 'paymongoMayaEnabled', 'pricesIncludeVat',
-            'maintenanceModeEnabled', 'maintenanceMessage',
+            'deliveryFeeAtCheckoutEnabled',
+            'maintenanceModeEnabled', 'maintenanceMessage', 'maintenanceBypassSecret',
         ];
 
         foreach ($fields as $field) {
@@ -227,6 +264,13 @@ class PlatformSettingsService
         }
         if (array_key_exists('abandonedCartDiscountCode', $dto)) {
             $data['abandonedCartDiscountCode'] = trim((string) $dto['abandonedCartDiscountCode']) ?: null;
+        }
+        if (array_key_exists('maintenanceWhitelistIps', $dto)) {
+            $parsed = $this->parseMaintenanceWhitelistIps((string) $dto['maintenanceWhitelistIps']);
+            $data['maintenanceWhitelistIps'] = $parsed === [] ? null : implode("\n", $parsed);
+        }
+        if (array_key_exists('maintenanceBypassSecret', $dto)) {
+            $data['maintenanceBypassSecret'] = trim((string) $dto['maintenanceBypassSecret']) ?: null;
         }
 
         if ($data !== []) {

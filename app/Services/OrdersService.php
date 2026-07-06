@@ -109,6 +109,7 @@ class OrdersService
             'shippingZone' => $pricing['shippingZone'],
             'isDomestic' => $pricing['isDomestic'],
             'deliveryNote' => $pricing['deliveryNote'],
+            'deliveryFeeDeferred' => $pricing['deliveryFeeDeferred'],
             'availablePaymentMethods' => $pricing['availablePaymentMethods'],
             'promotionCode' => $pricing['promotionCode'],
             'totalInPHP' => Decimal::toFloat($pricing['totalInPHP']),
@@ -330,10 +331,19 @@ class OrdersService
             ShippingRegion::validateShippingAddress($dto['shippingAddress'], true);
         }
 
+        $guestPhone = trim($dto['guestPhone'] ?? '');
+        if ($guestPhone === '') {
+            throw new BadRequestException('Phone number is required.');
+        }
+
         $country = trim($dto['shippingAddress']['country']);
         $region = ShippingRegion::getShippingRegion($country);
         $domestic = ShippingRegion::isPhilippines($country);
-        $allowedMethods = array_flip(PaymentMethods::getPaymentMethodsForRegion($region, $this->paymentSettings($settings)));
+        $availableMethods = PaymentMethods::getPaymentMethodsForRegion($region, $this->paymentSettings($settings));
+        if ($availableMethods === []) {
+            throw new BadRequestException('Checkout is unavailable because no payment methods are enabled.');
+        }
+        $allowedMethods = array_flip($availableMethods);
 
         if (! isset($allowedMethods[$dto['paymentMethod']])) {
             throw new BadRequestException(
@@ -388,6 +398,7 @@ class OrdersService
             $isSupportAssisted,
             $deliveryMethod,
             $settings,
+            $guestPhone,
         ) {
             $this->decrementStock($pricedLineItems);
 
@@ -399,7 +410,7 @@ class OrdersService
                 'orderNumber' => 'ORD-'.time().'-'.random_int(0, 99999),
                 'userId' => $dto['userId'] ?? null,
                 'guestEmail' => strtolower(trim($dto['guestEmail'])),
-                'guestPhone' => isset($dto['guestPhone']) ? trim($dto['guestPhone']) : null,
+                'guestPhone' => $guestPhone,
                 'currency' => $currency,
                 'exchangeRate' => $exchangeRate,
                 'subtotalInPHP' => $pricing['subtotalInPHP'],
@@ -417,6 +428,7 @@ class OrdersService
                 'shippingStatus' => ShippingStatus::Pending,
                 'quoteStatus' => $isSupportAssisted ? QuoteStatus::PendingReview : QuoteStatus::None,
                 'deliveryMethod' => $deliveryMethod,
+                'deliveryFeeDeferred' => $deliveryMethod !== DeliveryMethod::Pickup && ! $this->chargesDeliveryFeeAtCheckout($settings),
                 'pickupLocationId' => $dto['pickupLocationId'] ?? null,
                 'shippingAddress' => $dto['shippingAddress'],
                 'customerNote' => $settings->checkoutOrderNotesEnabled
@@ -1337,6 +1349,7 @@ class OrdersService
         $installationPricing = $this->resolveInstallationFee($priced['items'], $installationRequested);
         $shippingFee = Decimal::of($shipping['feeInPHP']);
         $installationFee = $installationPricing['feeInPHP'];
+        $deliveryFeeDeferred = $deliveryMethod !== DeliveryMethod::Pickup && ! $this->chargesDeliveryFeeAtCheckout($settings);
         $merchandiseTotal = $vat['inclusive']
             ? $afterDiscount
             : Decimal::add($afterDiscount, $taxAmountInPHP);
@@ -1365,13 +1378,16 @@ class OrdersService
             'shippingRegion' => $region,
             'shippingZone' => $shippingZone,
             'isDomestic' => $domestic,
-            'deliveryNote' => ShippingRegion::getDeliveryNote(
-                $region,
-                (float) $shipping['feeInPHP'],
-                Decimal::toFloat($priced['subtotalInPHP']),
-                (float) $settings->freeShippingMinPHP,
-                $settings->freeShippingEnabled,
-            ),
+            'deliveryNote' => $deliveryFeeDeferred
+                ? 'Our team will contact you to confirm delivery arrangements and shipping cost before your order ships.'
+                : ShippingRegion::getDeliveryNote(
+                    $region,
+                    (float) $shipping['feeInPHP'],
+                    Decimal::toFloat($priced['subtotalInPHP']),
+                    (float) $settings->freeShippingMinPHP,
+                    $settings->freeShippingEnabled,
+                ),
+            'deliveryFeeDeferred' => $deliveryFeeDeferred,
             'availablePaymentMethods' => $paymentMethods,
             'currency' => $currency,
             'exchangeRate' => $exchangeRate,
@@ -1612,8 +1628,17 @@ class OrdersService
             return [['id' => null, 'label' => 'Store pickup — free', 'feeInPHP' => 0, 'estimatedDays' => null]];
         }
 
-        $region = ShippingRegion::getShippingRegion($country);
         $settings = $this->platformSettings->getRaw();
+        if (! $this->chargesDeliveryFeeAtCheckout($settings)) {
+            return [[
+                'id' => null,
+                'label' => 'Delivery — fee to be confirmed',
+                'feeInPHP' => 0,
+                'estimatedDays' => null,
+            ]];
+        }
+
+        $region = ShippingRegion::getShippingRegion($country);
         $threshold = (float) $settings->freeShippingMinPHP;
         $zoneCode = ShippingZone::getShippingZoneForAddress($address);
 
@@ -1893,6 +1918,7 @@ class OrdersService
             'taxAmountInPHP' => (float) ($order->taxAmountInPHP ?? 0),
             'discountAmountInPHP' => (float) ($order->discountAmountInPHP ?? 0),
             'shippingFeeInPHP' => (float) $order->shippingFeeInPHP,
+            'deliveryFeeDeferred' => (bool) ($order->deliveryFeeDeferred ?? false),
             'installationFeeInPHP' => (float) ($order->installationFeeInPHP ?? 0),
             'installationRequested' => (bool) $order->installationRequested,
             'totalAmountInPHP' => (float) $order->totalAmountInPHP,
@@ -1951,5 +1977,16 @@ class OrdersService
             'paymongoEnabled' => $settings->paymongoEnabled,
             'stripeEnabled' => $settings->stripeEnabled,
         ];
+    }
+
+    private function chargesDeliveryFeeAtCheckout(\App\Models\PlatformSetting $settings): bool
+    {
+        $value = $settings->getAttributes()['deliveryFeeAtCheckoutEnabled'] ?? null;
+
+        if ($value === null) {
+            return true;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 }

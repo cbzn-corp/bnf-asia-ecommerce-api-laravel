@@ -10,6 +10,7 @@ Route::prefix('content')->group(function () {
     Route::get('storefront-settings', [ContentController::class, 'getStorefrontSettings']);
     Route::get('page-paths', [ContentController::class, 'getContentPagePaths']);
     Route::get('pages/{slug}', [ContentController::class, 'getStaticPage']);
+    Route::post('maintenance-bypass', [ContentController::class, 'validateMaintenanceBypass']);
 
     Route::middleware(['bnf.authenticate', 'staff', 'permissions:homepage.manage'])->group(function () {
         Route::patch('homepage', [ContentController::class, 'updateHomepage']);

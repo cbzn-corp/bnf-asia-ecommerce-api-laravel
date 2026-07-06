@@ -749,6 +749,8 @@ class ProductsService
         }
         $reservedSlugs[] = $slug;
 
+        $installation = $this->installationFromDto($item);
+
         $product = Product::query()->create([
           'name' => $item['name'],
           'slug' => $slug,
@@ -767,7 +769,8 @@ class ProductsService
           'isOnSale' => $item['isOnSale'] ?? false,
           'isPublished' => $item['isPublished'] ?? true,
           'hideWhenOutOfStock' => false,
-          'installationAvailable' => false,
+          'installationAvailable' => $installation['installationAvailable'],
+          'installationFeeInPHP' => $installation['installationFeeInPHP'],
           'rating' => 0,
           'reviewCount' => 0,
           'categoryId' => $categoryId,
@@ -918,7 +921,7 @@ class ProductsService
   public function findAllVariantsAdmin(?string $search = null, ?string $categoryId = null): array
   {
     $query = ProductVariant::query()
-      ->with(['product:id,name,slug,categoryId']);
+      ->with(['product:id,name,slug,sku,categoryId']);
 
     if ($search || $categoryId) {
       $query->whereHas('product', function (Builder $productQuery) use ($search, $categoryId) {
@@ -941,11 +944,18 @@ class ProductsService
     ])->values();
 
     return $rows->map(function (ProductVariant $row) {
+      $options = $row->options ?? [];
+      $optionColor = is_array($options)
+        ? ($options['Color'] ?? $options['color'] ?? null)
+        : null;
+
       return [
         ...$this->serializeVariant($row),
         'productId' => $row->productId,
         'productName' => $row->product->name,
         'productSlug' => $row->product->slug,
+        'productSku' => $row->product->sku,
+        'optionColor' => is_string($optionColor) ? $optionColor : null,
       ];
     })->all();
   }

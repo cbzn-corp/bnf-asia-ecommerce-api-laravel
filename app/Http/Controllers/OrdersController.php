@@ -52,7 +52,7 @@ class OrdersController extends Controller
     {
         $data = $request->validate([
             'guestEmail' => ['required', 'email'],
-            'guestPhone' => ['nullable', 'string'],
+            'guestPhone' => ['required', 'string', 'min:1'],
             'userId' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.productId' => ['required', 'string'],

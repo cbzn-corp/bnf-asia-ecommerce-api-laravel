@@ -8,6 +8,16 @@ final class HomepageDefaults
 {
     public const PROMO_BANNER_BG_COLORS = ['#3d2b1f', '#2d4a3e', '#1a2332'];
 
+    public const DEFAULT_OVERLAY_COLOR = '#000000';
+
+    public const DEFAULT_HERO_OVERLAY_OPACITY = 70;
+
+    public const DEFAULT_COLLECTION_OVERLAY_OPACITY = 75;
+
+    public const DEFAULT_SALE_COUNTDOWN_OVERLAY_COLOR = '#8b0000';
+
+    public const DEFAULT_SALE_COUNTDOWN_OVERLAY_OPACITY = 80;
+
     /**
      * @return array<string, mixed>
      */
@@ -100,6 +110,8 @@ final class HomepageDefaults
                 'ctaLabel' => 'Shop the Sale',
                 'ctaHref' => '/products?deals=on-sale',
                 'imageUrl' => null,
+                'overlayColor' => self::DEFAULT_OVERLAY_COLOR,
+                'overlayOpacity' => self::DEFAULT_HERO_OVERLAY_OPACITY,
                 'chips' => [
                     ['label' => 'Beds & Frames', 'href' => '/products?search=Beds%20%26%20Frames'],
                     ['label' => 'TV Cabinets', 'href' => '/products?search=TV%20Cabinets'],
@@ -116,6 +128,8 @@ final class HomepageDefaults
                     'ctaHref' => '/products?category=wardrobes',
                     'collectionSlug' => null,
                     'imageUrl' => null,
+                    'overlayColor' => self::DEFAULT_OVERLAY_COLOR,
+                    'overlayOpacity' => self::DEFAULT_COLLECTION_OVERLAY_OPACITY,
                 ],
                 [
                     'tag' => 'Outdoor Living',
@@ -125,6 +139,8 @@ final class HomepageDefaults
                     'ctaHref' => '/products?category=outdoor-furniture',
                     'collectionSlug' => null,
                     'imageUrl' => null,
+                    'overlayColor' => self::DEFAULT_OVERLAY_COLOR,
+                    'overlayOpacity' => self::DEFAULT_COLLECTION_OVERLAY_OPACITY,
                 ],
             ],
             'promoBanners' => [
@@ -161,6 +177,8 @@ final class HomepageDefaults
                 'ctaHref' => '/products?deals=on-sale',
                 'endsAt' => now()->addDays(14)->toIso8601String(),
                 'imageUrl' => null,
+                'overlayColor' => self::DEFAULT_SALE_COUNTDOWN_OVERLAY_COLOR,
+                'overlayOpacity' => self::DEFAULT_SALE_COUNTDOWN_OVERLAY_OPACITY,
             ],
             'serviceHighlights' => [
                 ['title' => 'Free Delivery', 'description' => 'On orders over ₱50,000'],

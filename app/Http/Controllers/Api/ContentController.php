@@ -187,4 +187,13 @@ class ContentController extends Controller
     {
         return response()->json($this->contentService->revalidateStorefront());
     }
+
+    public function validateMaintenanceBypass(Request $request): JsonResponse
+    {
+        $key = trim((string) $request->input('key', ''));
+
+        return response()->json([
+            'valid' => $key !== '' && $this->contentService->validateMaintenanceBypassKey($key),
+        ]);
+    }
 }

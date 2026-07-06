@@ -143,6 +143,11 @@ class ContentService
         return $merged;
     }
 
+    public function validateMaintenanceBypassKey(string $key): bool
+    {
+        return $this->platformSettings->validateMaintenanceBypassKey($key);
+    }
+
     /**
      * @return array<string, mixed>
      */

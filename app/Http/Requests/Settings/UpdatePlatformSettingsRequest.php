@@ -45,9 +45,12 @@ class UpdatePlatformSettingsRequest extends FormRequest
             'paymongoGcashEnabled' => ['sometimes', 'boolean'],
             'paymongoMayaEnabled' => ['sometimes', 'boolean'],
             'pricesIncludeVat' => ['sometimes', 'boolean'],
+            'deliveryFeeAtCheckoutEnabled' => ['sometimes', 'boolean'],
             'abandonedCartDiscountCode' => ['sometimes', 'nullable', 'string'],
             'maintenanceModeEnabled' => ['sometimes', 'boolean'],
             'maintenanceMessage' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'maintenanceWhitelistIps' => ['sometimes', 'nullable', 'string', 'max:4000'],
+            'maintenanceBypassSecret' => ['sometimes', 'nullable', 'string', 'max:128'],
         ];
     }
 }

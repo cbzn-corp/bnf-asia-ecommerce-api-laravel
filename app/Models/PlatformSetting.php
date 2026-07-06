@@ -51,6 +51,9 @@ class PlatformSetting extends Model
         'abandonedCartDiscountCode',
         'maintenanceModeEnabled',
         'maintenanceMessage',
+        'maintenanceWhitelistIps',
+        'maintenanceBypassSecret',
+        'deliveryFeeAtCheckoutEnabled',
     ];
 
     protected function casts(): array
@@ -79,6 +82,7 @@ class PlatformSetting extends Model
             'paymongoMayaEnabled' => 'boolean',
             'pricesIncludeVat' => 'boolean',
             'maintenanceModeEnabled' => 'boolean',
+            'deliveryFeeAtCheckoutEnabled' => 'boolean',
         ];
     }
 }

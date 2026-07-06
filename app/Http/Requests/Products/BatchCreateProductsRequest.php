@@ -32,6 +32,7 @@ class BatchCreateProductsRequest extends FormRequest
             'items.*.isBestSeller' => ['sometimes', 'boolean'],
             'items.*.isOnSale' => ['sometimes', 'boolean'],
             'items.*.isPublished' => ['sometimes', 'boolean'],
+            'items.*.installationFeeInPHP' => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'items.*.categoryName' => ['sometimes', 'nullable', 'string'],
         ];
     }

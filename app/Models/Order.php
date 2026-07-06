@@ -65,6 +65,7 @@ class Order extends Model
         'refundStatus',
         'deliveryMethod',
         'quoteStatus',
+        'deliveryFeeDeferred',
     ];
 
     protected function casts(): array
@@ -77,6 +78,7 @@ class Order extends Model
             'shippingFeeInPHP' => 'decimal:2',
             'installationFeeInPHP' => 'decimal:2',
             'installationRequested' => 'boolean',
+            'deliveryFeeDeferred' => 'boolean',
             'totalAmountInPHP' => 'decimal:2',
             'estimatedDeliveryAt' => 'datetime',
             'shippingAddress' => 'array',

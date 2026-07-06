@@ -81,11 +81,29 @@ final class HomepageUtils
     }
 
     /**
+     * @return array{overlayColor: string, overlayOpacity: int}
+     */
+    private static function normalizeOverlay(mixed $value, int $defaultOpacity): array
+    {
+        $raw = is_array($value) ? $value : [];
+        $colorRaw = trim((string) ($raw['overlayColor'] ?? ''));
+        $opacityRaw = $raw['overlayOpacity'] ?? $defaultOpacity;
+
+        return [
+            'overlayColor' => preg_match('/^#[0-9a-fA-F]{6}$/', $colorRaw)
+                ? $colorRaw
+                : HomepageDefaults::DEFAULT_OVERLAY_COLOR,
+            'overlayOpacity' => min(100, max(0, (int) $opacityRaw)),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function normalizeCollectionBlock(mixed $block): array
     {
         $value = is_array($block) ? $block : [];
+        $overlay = self::normalizeOverlay($value, HomepageDefaults::DEFAULT_COLLECTION_OVERLAY_OPACITY);
 
         return [
             'tag' => (string) ($value['tag'] ?? ''),
@@ -95,6 +113,8 @@ final class HomepageUtils
             'ctaHref' => (string) ($value['ctaHref'] ?? '/products'),
             'collectionSlug' => ! empty($value['collectionSlug']) ? (string) $value['collectionSlug'] : null,
             'imageUrl' => ! empty($value['imageUrl']) ? (string) $value['imageUrl'] : null,
+            'overlayColor' => $overlay['overlayColor'],
+            'overlayOpacity' => $overlay['overlayOpacity'],
         ];
     }
 
@@ -238,6 +258,12 @@ final class HomepageUtils
             $headline = $defaults['headline'];
         }
 
+        $overlay = self::normalizeOverlay($value, HomepageDefaults::DEFAULT_SALE_COUNTDOWN_OVERLAY_OPACITY);
+        $overlayColorRaw = trim((string) ($value['overlayColor'] ?? ''));
+        $overlayColor = preg_match('/^#[0-9a-fA-F]{6}$/', $overlayColorRaw)
+            ? $overlayColorRaw
+            : HomepageDefaults::DEFAULT_SALE_COUNTDOWN_OVERLAY_COLOR;
+
         return [
             'title' => (string) ($value['title'] ?? $defaults['title']),
             'headline' => $headline,
@@ -246,6 +272,8 @@ final class HomepageUtils
             'ctaHref' => (string) ($value['ctaHref'] ?? $defaults['ctaHref']),
             'endsAt' => (string) ($value['endsAt'] ?? $defaults['endsAt']),
             'imageUrl' => ! empty($value['imageUrl']) ? (string) $value['imageUrl'] : null,
+            'overlayColor' => $overlayColor,
+            'overlayOpacity' => $overlay['overlayOpacity'],
         ];
     }
 
@@ -260,6 +288,8 @@ final class HomepageUtils
         $countdownRaw = is_array($value['saleCountdown'] ?? null) ? $value['saleCountdown'] : [];
         $visibilityRaw = is_array($value['sectionVisibility'] ?? null) ? $value['sectionVisibility'] : [];
 
+        $heroOverlay = self::normalizeOverlay($heroRaw, HomepageDefaults::DEFAULT_HERO_OVERLAY_OPACITY);
+
         $hero = [
             'eyebrow' => (string) ($heroRaw['eyebrow'] ?? $defaults['hero']['eyebrow']),
             'title' => (string) ($heroRaw['title'] ?? $defaults['hero']['title']),
@@ -267,6 +297,8 @@ final class HomepageUtils
             'ctaLabel' => (string) ($heroRaw['ctaLabel'] ?? $defaults['hero']['ctaLabel']),
             'ctaHref' => (string) ($heroRaw['ctaHref'] ?? $defaults['hero']['ctaHref']),
             'imageUrl' => ! empty($heroRaw['imageUrl']) ? (string) $heroRaw['imageUrl'] : null,
+            'overlayColor' => $heroOverlay['overlayColor'],
+            'overlayOpacity' => $heroOverlay['overlayOpacity'],
             'chips' => is_array($heroRaw['chips'] ?? null)
                 ? array_values(array_filter(
                     array_map([self::class, 'normalizeChip'], $heroRaw['chips']),

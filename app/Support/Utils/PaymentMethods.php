@@ -71,7 +71,7 @@ final class PaymentMethods
                 $methods[] = self::SUPPORT_ASSISTED;
             }
 
-            return $methods !== [] ? $methods : [self::COD];
+            return $methods;
         }
 
         return $stripeEnabled ? [self::STRIPE_CARD] : [];
