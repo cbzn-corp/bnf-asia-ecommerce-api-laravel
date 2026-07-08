@@ -116,6 +116,11 @@ class SupabaseService
     return $this->uploadFile("storefront/{$asset}/".time().'-'.$this->safeFilename($file), $file, $allowed);
   }
 
+  public function uploadHomepageHeroTopCarouselImage(int $index, UploadedFile $file): string
+  {
+    return $this->uploadFile("homepage/hero-top-carousel/{$index}/".time().'-'.$this->safeFilename($file), $file);
+  }
+
   public function uploadHomepageHeroImage(UploadedFile $file): string
   {
     return $this->uploadFile('homepage/hero/'.time().'-'.$this->safeFilename($file), $file);

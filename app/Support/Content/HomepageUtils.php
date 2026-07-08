@@ -100,6 +100,45 @@ final class HomepageUtils
     /**
      * @return array<string, mixed>
      */
+    private static function normalizeHeroTopCarouselSlide(mixed $slide, int $index): array
+    {
+        $value = is_array($slide) ? $slide : [];
+
+        return [
+            'id' => (string) ($value['id'] ?? 'hero-top-slide-'.($index + 1)),
+            'imageUrl' => ! empty($value['imageUrl']) ? (string) $value['imageUrl'] : '',
+            'href' => (string) ($value['href'] ?? '/products'),
+            'alt' => (string) ($value['alt'] ?? ''),
+            'sortOrder' => (int) ($value['sortOrder'] ?? $index),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function normalizeHeroTopCarousel(mixed $value): array
+    {
+        $raw = is_array($value) ? $value : [];
+        $defaults = HomepageDefaults::heroTopCarousel();
+        $slides = is_array($raw['slides'] ?? null)
+            ? array_map(
+                static fn ($slide, $index) => self::normalizeHeroTopCarouselSlide($slide, (int) $index),
+                $raw['slides'],
+                array_keys($raw['slides']),
+            )
+            : $defaults['slides'];
+
+        usort($slides, static fn ($a, $b) => $a['sortOrder'] <=> $b['sortOrder']);
+
+        return [
+            'autoplayMs' => min(30000, max(2000, (int) ($raw['autoplayMs'] ?? $defaults['autoplayMs']))),
+            'slides' => $slides,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private static function normalizeCollectionBlock(mixed $block): array
     {
         $value = is_array($block) ? $block : [];
@@ -310,6 +349,10 @@ final class HomepageUtils
         $sectionVisibilityDefaults = HomepageDefaults::sectionVisibility();
         $sectionVisibility = [
             'hero' => self::normalizeSectionSchedule($visibilityRaw['hero'] ?? null, $sectionVisibilityDefaults['hero']),
+            'heroTopCarousel' => self::normalizeSectionSchedule(
+                $visibilityRaw['heroTopCarousel'] ?? null,
+                $sectionVisibilityDefaults['heroTopCarousel'],
+            ),
             'collectionBlocks' => self::normalizeSectionSchedule($visibilityRaw['collectionBlocks'] ?? null, $sectionVisibilityDefaults['collectionBlocks']),
             'serviceHighlights' => self::normalizeSectionSchedule($visibilityRaw['serviceHighlights'] ?? null, $sectionVisibilityDefaults['serviceHighlights']),
             'categoryIconScroll' => self::normalizeSectionSchedule($visibilityRaw['categoryIconScroll'] ?? null, $sectionVisibilityDefaults['categoryIconScroll']),
@@ -333,6 +376,7 @@ final class HomepageUtils
             'promoBar' => (string) ($value['promoBar'] ?? $defaults['promoBar']),
             'phone' => (string) ($value['phone'] ?? $defaults['phone']),
             'hero' => $hero,
+            'heroTopCarousel' => self::normalizeHeroTopCarousel($value['heroTopCarousel'] ?? null),
             'collections' => is_array($value['collections'] ?? null)
                 ? array_map([self::class, 'normalizeCollectionBlock'], $value['collections'])
                 : $defaults['collections'],

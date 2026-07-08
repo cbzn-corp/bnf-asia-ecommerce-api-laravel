@@ -196,6 +196,49 @@ class ContentService
     /**
      * @return array<string, mixed>
      */
+    public function uploadHomepageHeroTopCarouselImage(int $index, UploadedFile $file): array
+    {
+        $current = $this->getHomepage();
+        if ($index < 0 || $index >= count($current['heroTopCarousel']['slides'])) {
+            throw new BadRequestHttpException('Invalid hero top carousel slide index');
+        }
+
+        $url = $this->supabase->uploadHomepageHeroTopCarouselImage($index, $file);
+        $slides = $current['heroTopCarousel']['slides'];
+        $slides[$index] = [...$slides[$index], 'imageUrl' => $url];
+        $merged = HomepageUtils::normalizeHomepageContent([
+            ...$current,
+            'heroTopCarousel' => [...$current['heroTopCarousel'], 'slides' => $slides],
+        ]);
+        $this->persistBlock(self::HOMEPAGE_KEY, $merged);
+
+        return $merged;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function removeHomepageHeroTopCarouselImage(int $index): array
+    {
+        $current = $this->getHomepage();
+        if ($index < 0 || $index >= count($current['heroTopCarousel']['slides'])) {
+            throw new BadRequestHttpException('Invalid hero top carousel slide index');
+        }
+
+        $slides = $current['heroTopCarousel']['slides'];
+        $slides[$index] = [...$slides[$index], 'imageUrl' => ''];
+        $merged = HomepageUtils::normalizeHomepageContent([
+            ...$current,
+            'heroTopCarousel' => [...$current['heroTopCarousel'], 'slides' => $slides],
+        ]);
+        $this->persistBlock(self::HOMEPAGE_KEY, $merged);
+
+        return $merged;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function uploadHomepageHeroImage(UploadedFile $file): array
     {
         $url = $this->supabase->uploadHomepageHeroImage($file);

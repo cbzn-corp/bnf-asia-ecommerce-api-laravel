@@ -53,6 +53,21 @@ class ContentController extends Controller
         return response()->json($this->contentService->removeHomepageHeroImage());
     }
 
+    public function uploadHomepageHeroTopCarouselImage(Request $request, int $index): JsonResponse
+    {
+        $file = $request->file('image');
+        if (! $file) {
+            throw new BadRequestHttpException('An image file is required');
+        }
+
+        return response()->json($this->contentService->uploadHomepageHeroTopCarouselImage($index, $file));
+    }
+
+    public function removeHomepageHeroTopCarouselImage(int $index): JsonResponse
+    {
+        return response()->json($this->contentService->removeHomepageHeroTopCarouselImage($index));
+    }
+
     public function uploadHomepageCollectionImage(Request $request, int $index): JsonResponse
     {
         $file = $request->file('image');

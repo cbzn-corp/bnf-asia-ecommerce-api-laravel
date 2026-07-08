@@ -18,6 +18,19 @@ final class HomepageDefaults
 
     public const DEFAULT_SALE_COUNTDOWN_OVERLAY_OPACITY = 80;
 
+    public const DEFAULT_HERO_TOP_CAROUSEL_AUTOPLAY_MS = 5000;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function heroTopCarousel(): array
+    {
+        return [
+            'autoplayMs' => self::DEFAULT_HERO_TOP_CAROUSEL_AUTOPLAY_MS,
+            'slides' => [],
+        ];
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -27,6 +40,7 @@ final class HomepageDefaults
 
         return [
             'hero' => $schedule,
+            'heroTopCarousel' => $schedule,
             'collectionBlocks' => $schedule,
             'serviceHighlights' => $schedule,
             'categoryIconScroll' => $schedule,
@@ -119,6 +133,7 @@ final class HomepageDefaults
                     ['label' => 'Sale', 'href' => '/products?deals=on-sale'],
                 ],
             ],
+            'heroTopCarousel' => self::heroTopCarousel(),
             'collections' => [
                 [
                     'tag' => 'New Collection',

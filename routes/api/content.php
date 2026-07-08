@@ -14,6 +14,8 @@ Route::prefix('content')->group(function () {
 
     Route::middleware(['bnf.authenticate', 'staff', 'permissions:homepage.manage'])->group(function () {
         Route::patch('homepage', [ContentController::class, 'updateHomepage']);
+        Route::post('homepage/upload/hero-top-carousel/{index}', [ContentController::class, 'uploadHomepageHeroTopCarouselImage']);
+        Route::delete('homepage/upload/hero-top-carousel/{index}', [ContentController::class, 'removeHomepageHeroTopCarouselImage']);
         Route::post('homepage/upload/hero', [ContentController::class, 'uploadHomepageHeroImage']);
         Route::delete('homepage/upload/hero', [ContentController::class, 'removeHomepageHeroImage']);
         Route::post('homepage/upload/collection/{index}', [ContentController::class, 'uploadHomepageCollectionImage']);

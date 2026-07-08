@@ -20,6 +20,7 @@ class UpdateHomepageRequest extends FormRequest
             'promoBar' => ['sometimes', 'string'],
             'phone' => ['sometimes', 'string'],
             'hero' => ['sometimes', 'array'],
+            'heroTopCarousel' => ['sometimes', 'array'],
             'collections' => ['sometimes', 'array'],
             'promoBanners' => ['sometimes', 'array'],
             'saleCountdown' => ['sometimes', 'array'],

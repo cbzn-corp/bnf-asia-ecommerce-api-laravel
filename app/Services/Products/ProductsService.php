@@ -74,12 +74,7 @@ class ProductsService
     }
 
     if (! empty($query['search'])) {
-      $search = (string) $query['search'];
-      $builder->where(function (Builder $q) use ($search) {
-        $q->where('name', 'ilike', "%{$search}%")
-          ->orWhere('slug', 'ilike', "%{$search}%")
-          ->orWhere('sku', 'ilike', "%{$search}%");
-      });
+      $this->applyProductSearch($builder, (string) $query['search']);
     }
 
     if ($categoryIds) {
@@ -112,6 +107,17 @@ class ProductsService
     }
 
     return $builder;
+  }
+
+  private function applyProductSearch(Builder $builder, string $search): void
+  {
+    $builder->where(function (Builder $q) use ($search) {
+      $q->where('name', 'ilike', "%{$search}%")
+        ->orWhere('slug', 'ilike', "%{$search}%")
+        ->orWhere('sku', 'ilike', "%{$search}%")
+        ->orWhere('shortDescription', 'ilike', "%{$search}%")
+        ->orWhereHas('category', fn (Builder $category) => $category->where('name', 'ilike', "%{$search}%"));
+    });
   }
 
   private function applyOrderBy(Builder $builder, ?string $sort): Builder
@@ -245,10 +251,10 @@ class ProductsService
           });
       })
       ->where(function (Builder $builder) use ($term) {
-        $builder->where('name', 'ilike', "%{$term}%")
-          ->orWhere('sku', 'ilike', "%{$term}%");
+        $this->applyProductSearch($builder, $term);
       })
-      ->select(['id', 'name', 'slug', 'sku', 'priceInPHP', 'images'])
+      ->with(['category:id,name,slug'])
+      ->select(['id', 'name', 'slug', 'sku', 'shortDescription', 'priceInPHP', 'images', 'categoryId'])
       ->orderByDesc('reviewCount')
       ->limit(8)
       ->get();
@@ -261,8 +267,12 @@ class ProductsService
         'name' => $p->name,
         'slug' => $p->slug,
         'sku' => $p->sku,
+        'shortDescription' => $p->shortDescription,
         'priceInPHP' => (float) $p->priceInPHP,
         'image' => $images[0] ?? null,
+        'category' => $p->category
+          ? ['name' => $p->category->name, 'slug' => $p->category->slug]
+          : null,
       ];
     })->all();
   }
