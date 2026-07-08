@@ -146,6 +146,11 @@ class SupabaseService
     return $this->uploadFile('content/pages/'.time().'-'.$this->safeFilename($file), $file);
   }
 
+  public function uploadOrderNoteImage(string $orderId, UploadedFile $file): string
+  {
+    return $this->uploadFile("orders/{$orderId}/notes/".time().'-'.$this->safeFilename($file), $file);
+  }
+
   public function uploadContentPageVideo(UploadedFile $file): string
   {
     return $this->uploadFile(

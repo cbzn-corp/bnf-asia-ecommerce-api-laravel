@@ -5,6 +5,7 @@ require __DIR__.'/api/catalog.php';
 require __DIR__.'/api/roles-users.php';
 require __DIR__.'/api/orders.php';
 require __DIR__.'/api/promotions.php';
+require __DIR__.'/api/referrals.php';
 require __DIR__.'/api/webhooks.php';
 require __DIR__.'/api/settings.php';
 require __DIR__.'/api/content.php';

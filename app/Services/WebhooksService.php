@@ -9,6 +9,10 @@ use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 class WebhooksService
 {
+    public function __construct(
+        private readonly ReferralsService $referralsService,
+    ) {}
+
     public function verifySignature(string $payload, string $signature, string $secret): bool
     {
         $expected = hash_hmac('sha256', $payload, $secret);
@@ -39,7 +43,10 @@ class WebhooksService
 
         $order = Order::query()->where('orderNumber', $orderNumber)->firstOrFail();
         $order->update(['paymentStatus' => PaymentStatus::Paid]);
+        $order = $order->fresh();
 
-        return $order->fresh();
+        $this->referralsService->onOrderPaid($order);
+
+        return $order;
     }
 }

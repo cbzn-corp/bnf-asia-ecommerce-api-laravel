@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesAuthUser;
 use App\Services\OrdersService;
+use App\Services\Supabase\SupabaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
 class OrdersController extends Controller
 {
@@ -14,6 +16,7 @@ class OrdersController extends Controller
 
     public function __construct(
         private readonly OrdersService $ordersService,
+        private readonly SupabaseService $supabaseService,
     ) {}
 
     public function preview(Request $request)
@@ -61,6 +64,7 @@ class OrdersController extends Controller
             'shippingAddress' => ['required', 'array'],
             'paymentMethod' => ['required', Rule::enum(\App\Enums\PaymentMethod::class)],
             'promotionCode' => ['nullable', 'string'],
+            'referralCode' => ['nullable', 'string'],
             'deliveryMethod' => ['nullable', Rule::enum(\App\Enums\DeliveryMethod::class)],
             'pickupLocationId' => ['nullable', 'string'],
             'bundleId' => ['nullable', 'string'],
@@ -149,6 +153,11 @@ class OrdersController extends Controller
         return response()->json($this->ordersService->createManualOrder($data, $staff->email));
     }
 
+    public function listOrderRequests(Request $request)
+    {
+        return response()->json($this->ordersService->findOrderRequests($request->query()));
+    }
+
     public function findAll(Request $request)
     {
         return response()->json($this->ordersService->findAll($request->query()));
@@ -223,9 +232,28 @@ class OrdersController extends Controller
     public function addNote(Request $request, string $id)
     {
         $staff = $this->requireAuthUser($request);
-        $data = $request->validate(['body' => ['required', 'string']]);
+        $data = $request->validate([
+            'body' => ['nullable', 'string', 'max:5000'],
+            'images' => ['nullable', 'array', 'max:5'],
+            'images.*' => ['file', 'image', 'max:10240'],
+        ]);
 
-        return response()->json($this->ordersService->addNote($id, $data['body'], $staff->email));
+        $body = trim($data['body'] ?? '');
+        /** @var list<\Illuminate\Http\UploadedFile> $files */
+        $files = $request->file('images', []);
+        if ($body === '' && $files === []) {
+            throw new BadRequestException('Note text or at least one image is required.');
+        }
+
+        $imageUrls = [];
+        foreach ($files as $file) {
+            $imageUrls[] = $this->supabaseService->uploadOrderNoteImage($id, $file);
+        }
+
+        return response()->json(
+            $this->ordersService->addNote($id, $body, $staff->email, $imageUrls),
+            201,
+        );
     }
 
     public function processRefund(Request $request, string $id)

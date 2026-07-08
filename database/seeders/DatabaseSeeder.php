@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
         'homepage.manage',
         'reviews.manage',
         'promotions.manage',
+        'referrals.manage',
         'abandoned_carts.manage',
         'users.manage',
         'roles.manage',

@@ -2,16 +2,15 @@
 
 namespace App\Models;
 
-use App\Casts\PostgresTextArray;
 use App\Models\Concerns\HasCuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class OrderNote extends Model
+class ReferralClick extends Model
 {
     use HasCuid;
 
-    protected $table = 'OrderNote';
+    protected $table = 'ReferralClick';
 
     public static $snakeAttributes = false;
 
@@ -24,21 +23,19 @@ class OrderNote extends Model
     const UPDATED_AT = null;
 
     protected $fillable = [
-        'orderId',
-        'authorEmail',
-        'body',
-        'images',
+        'partnerId',
+        'productId',
+        'landingPath',
+        'sessionId',
     ];
 
-    protected function casts(): array
+    public function partner(): BelongsTo
     {
-        return [
-            'images' => PostgresTextArray::class,
-        ];
+        return $this->belongsTo(ReferralPartner::class, 'partnerId');
     }
 
-    public function order(): BelongsTo
+    public function product(): BelongsTo
     {
-        return $this->belongsTo(Order::class, 'orderId');
+        return $this->belongsTo(Product::class, 'productId');
     }
 }

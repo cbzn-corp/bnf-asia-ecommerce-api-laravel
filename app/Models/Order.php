@@ -47,6 +47,8 @@ class Order extends Model
         'installationRequested',
         'totalAmountInPHP',
         'promotionCode',
+        'referralPartnerId',
+        'referralCode',
         'paymentSessionId',
         'paymentSessionUrl',
         'pickupLocationId',
@@ -127,5 +129,10 @@ class Order extends Model
     public function shipmentEvents(): HasMany
     {
         return $this->hasMany(ShipmentEvent::class, 'orderId');
+    }
+
+    public function referralPartner(): BelongsTo
+    {
+        return $this->belongsTo(ReferralPartner::class, 'referralPartnerId');
     }
 }

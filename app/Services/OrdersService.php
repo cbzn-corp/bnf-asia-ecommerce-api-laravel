@@ -48,6 +48,7 @@ class OrdersService
         private readonly AuditService $auditService,
         private readonly AbandonedCartsService $abandonedCartsService,
         private readonly SupportChatService $supportChat,
+        private readonly ReferralsService $referralsService,
     ) {}
 
     /**
@@ -236,6 +237,67 @@ class OrdersService
         return $request;
     }
 
+    /**
+     * @param  array<string, mixed>  $query
+     * @return array{data: list<array<string, mixed>>, meta: array<string, mixed>}
+     */
+    public function findOrderRequests(array $query): array
+    {
+        $status = OrderRequestStatus::from((string) ($query['status'] ?? OrderRequestStatus::Pending->value));
+        $type = ! empty($query['type']) ? OrderRequestType::from((string) $query['type']) : null;
+        $search = trim((string) ($query['search'] ?? ''));
+        $page = max(1, (int) ($query['page'] ?? 1));
+        $limit = min(max(1, (int) ($query['limit'] ?? 20)), 100);
+
+        $builder = OrderRequest::query()
+            ->with(['order.user:id,email'])
+            ->where('status', $status)
+            ->orderByDesc('createdAt');
+
+        if ($type !== null) {
+            $builder->where('type', $type);
+        }
+
+        if ($search !== '') {
+            $needle = '%'.$search.'%';
+            $builder->whereHas('order', function ($orderQuery) use ($needle) {
+                $orderQuery->where('orderNumber', 'ilike', $needle)
+                    ->orWhere('guestEmail', 'ilike', $needle)
+                    ->orWhereHas('user', fn ($userQuery) => $userQuery->where('email', 'ilike', $needle));
+            });
+        }
+
+        $total = (clone $builder)->count();
+        $requests = $builder->skip(($page - 1) * $limit)->take($limit)->get();
+
+        return [
+            'data' => $requests->map(function (OrderRequest $request) {
+                $order = $request->order;
+
+                return [
+                    'requestId' => $request->id,
+                    'orderId' => $request->orderId,
+                    'orderNumber' => $order->orderNumber,
+                    'customerEmail' => $order->user?->email ?? $order->guestEmail ?? 'Guest',
+                    'type' => $request->type->value,
+                    'status' => $request->status->value,
+                    'reason' => $request->reason,
+                    'staffNote' => $request->staffNote,
+                    'createdAt' => $request->createdAt,
+                    'paymentStatus' => $order->paymentStatus->value,
+                    'shippingStatus' => $order->shippingStatus->value,
+                    'totalAmountInPHP' => (float) $order->totalAmountInPHP,
+                ];
+            })->all(),
+            'meta' => [
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'totalPages' => (int) ceil($total / max($limit, 1)),
+            ],
+        ];
+    }
+
     public function resolveOrderRequest(
         string $orderId,
         string $requestId,
@@ -373,6 +435,7 @@ class OrdersService
         }
 
         $installationRequested = $dto['installationRequested'] ?? false;
+        $referral = $this->referralsService->resolvePartnerForCheckout($dto['referralCode'] ?? null);
         $pricing = $this->calculatePricing(
             $dto['items'],
             $dto['shippingAddress'],
@@ -399,6 +462,7 @@ class OrdersService
             $deliveryMethod,
             $settings,
             $guestPhone,
+            $referral,
         ) {
             $this->decrementStock($pricedLineItems);
 
@@ -423,6 +487,8 @@ class OrdersService
                 'installationRequested' => $pricing['installationRequested'],
                 'totalAmountInPHP' => $pricing['totalInPHP'],
                 'promotionCode' => $pricing['promotionCode'],
+                'referralPartnerId' => $referral['partnerId'] ?? null,
+                'referralCode' => $referral['referralCode'] ?? null,
                 'paymentMethod' => $paymentMethod,
                 'paymentStatus' => PaymentStatus::Unpaid,
                 'shippingStatus' => ShippingStatus::Pending,
@@ -715,6 +781,10 @@ class OrdersService
             ],
         ]);
 
+        if ($paymentStatus === PaymentStatus::Paid) {
+            $this->referralsService->onOrderPaid($order);
+        }
+
         return $this->serializeOrder($order);
     }
 
@@ -724,13 +794,21 @@ class OrdersService
      */
     public function findAll(array $query): array
     {
-        $builder = Order::query()->with(['orderItems.product:id,name', 'user:id,email']);
+        $builder = Order::query()->with([
+            'orderItems.product:id,name,slug',
+            'user:id,email',
+            'referralPartner:id,name,code',
+            'referralPartner.products:partnerId,productId',
+        ]);
 
         if (! empty($query['paymentStatus'])) {
             $builder->where('paymentStatus', $query['paymentStatus']);
         }
         if (! empty($query['shippingStatus'])) {
             $builder->where('shippingStatus', $query['shippingStatus']);
+        }
+        if (! empty($query['refundStatus'])) {
+            $builder->where('refundStatus', $query['refundStatus']);
         }
         if (($query['fulfillment'] ?? null) === 'true') {
             $builder->where('paymentStatus', PaymentStatus::Paid)
@@ -791,8 +869,10 @@ class OrdersService
     {
         $order = Order::query()
             ->with([
-                'orderItems.product',
+                'orderItems.product:id,name,slug',
                 'user:id,email,roleId',
+                'referralPartner:id,name,code',
+                'referralPartner.products:partnerId,productId',
                 'supportConversation:id,orderId',
                 'statusHistory' => fn ($q) => $q->orderByDesc('createdAt')->limit(20),
                 'notes' => fn ($q) => $q->orderByDesc('createdAt'),
@@ -807,13 +887,14 @@ class OrdersService
         return $this->serializeOrder($order);
     }
 
-    public function addNote(string $id, string $body, string $authorEmail): OrderNote
+    public function addNote(string $id, string $body, string $authorEmail, array $imageUrls = []): OrderNote
     {
         $this->findOne($id);
         $note = OrderNote::query()->create([
             'orderId' => $id,
             'authorEmail' => $authorEmail,
             'body' => $body,
+            'images' => $imageUrls,
         ]);
         $this->auditService->log([
             'userEmail' => $authorEmail,
@@ -872,6 +953,8 @@ class OrdersService
             'entityId' => $id,
             'details' => ['refundStatus' => $refundStatus->value, 'amount' => $dto['refundAmountInPHP']],
         ]);
+
+        $this->referralsService->onOrderRefundStatusChanged($order);
 
         return $this->serializeOrder($order);
     }
@@ -990,6 +1073,18 @@ class OrdersService
                 'entityId' => $id,
                 'details' => $data,
             ]);
+        }
+
+        if (
+            ! empty($data['paymentStatus'])
+            && $data['paymentStatus'] === PaymentStatus::Paid->value
+            && $existing->paymentStatus !== PaymentStatus::Paid
+        ) {
+            $this->referralsService->onOrderPaid($order);
+        }
+
+        if (! empty($data['paymentStatus']) || ! empty($data['refundStatus'])) {
+            $this->referralsService->onOrderRefundStatusChanged($order);
         }
 
         return $this->serializeOrder($order);
@@ -1265,6 +1360,20 @@ class OrdersService
                 ->whereIn('quoteStatus', [QuoteStatus::PendingReview, QuoteStatus::QuoteSent])
                 ->count(),
             'followUpCount' => $followUpQuery->count(),
+            'pendingCancellationRequests' => OrderRequest::query()
+                ->where('status', OrderRequestStatus::Pending)
+                ->where('type', OrderRequestType::Cancel)
+                ->count(),
+            'pendingReturnRequests' => OrderRequest::query()
+                ->where('status', OrderRequestStatus::Pending)
+                ->where('type', OrderRequestType::Return)
+                ->count(),
+            'pendingOrderRequests' => OrderRequest::query()
+                ->where('status', OrderRequestStatus::Pending)
+                ->count(),
+            'pendingRefunds' => Order::query()
+                ->where('refundStatus', RefundStatus::Requested)
+                ->count(),
         ];
     }
 
@@ -1874,16 +1983,79 @@ class OrdersService
         $data['customerPhone'] = $order->guestPhone;
         $data['itemCount'] = $order->relationLoaded('orderItems') ? $order->orderItems->count() : 0;
         $data['orderItems'] = $order->relationLoaded('orderItems')
-            ? $order->orderItems->map(fn (OrderItem $item) => array_merge($item->toArray(), [
-                'unitPriceInPHP' => (float) $item->unitPriceInPHP,
-                'totalPriceInPHP' => (float) $item->totalPriceInPHP,
-                'productName' => $item->product?->name ?? 'Product',
-            ]))->all()
+            ? $this->serializeOrderItems($order)
             : [];
+        $data['referralCode'] = $order->referralCode;
+        $data['referralPartner'] = $this->serializeReferralPartner($order);
         $data['hasSupportConversation'] = $order->relationLoaded('supportConversation')
             && $order->supportConversation !== null;
 
         return $data;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function serializeOrderItems(Order $order): array
+    {
+        $referralProductIds = $this->referralEligibleProductIds($order);
+
+        return $order->orderItems->map(fn (OrderItem $item) => [
+            'id' => $item->id,
+            'productId' => $item->productId,
+            'productSlug' => $item->product?->slug,
+            'quantity' => $item->quantity,
+            'unitPriceInPHP' => (float) $item->unitPriceInPHP,
+            'totalPriceInPHP' => (float) $item->totalPriceInPHP,
+            'productName' => $item->product?->name ?? 'Product',
+            'referralEligible' => isset($referralProductIds[$item->productId]),
+        ])->all();
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function serializeReferralPartner(Order $order): ?array
+    {
+        if (! $order->referralPartnerId) {
+            return null;
+        }
+
+        if (! $order->relationLoaded('referralPartner')) {
+            $order->load('referralPartner:id,name,code');
+        }
+
+        if (! $order->referralPartner) {
+            return null;
+        }
+
+        return [
+            'id' => $order->referralPartner->id,
+            'name' => $order->referralPartner->name,
+            'code' => $order->referralPartner->code,
+        ];
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function referralEligibleProductIds(Order $order): array
+    {
+        if (! $order->referralPartnerId) {
+            return [];
+        }
+
+        if (! $order->relationLoaded('referralPartner')) {
+            $order->load('referralPartner.products:partnerId,productId');
+        } elseif ($order->referralPartner && ! $order->referralPartner->relationLoaded('products')) {
+            $order->referralPartner->load('products:partnerId,productId');
+        }
+
+        if (! $order->referralPartner) {
+            return [];
+        }
+
+        return $order->referralPartner->products->pluck('productId')->flip()->all();
     }
 
     /**

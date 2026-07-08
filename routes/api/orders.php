@@ -21,6 +21,7 @@ Route::prefix('orders')->group(function () {
 
     Route::middleware(['bnf.authenticate', 'require.permissions:orders.manage'])->group(function () {
         Route::post('manual', [OrdersController::class, 'createManual']);
+        Route::get('requests', [OrdersController::class, 'listOrderRequests']);
         Route::get('/', [OrdersController::class, 'findAll']);
         Route::get('{id}/invoice.pdf', [OrdersController::class, 'downloadAdminInvoice']);
         Route::get('{id}', [OrdersController::class, 'findOne']);
