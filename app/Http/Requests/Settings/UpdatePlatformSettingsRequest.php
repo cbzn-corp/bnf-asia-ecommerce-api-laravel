@@ -46,6 +46,8 @@ class UpdatePlatformSettingsRequest extends FormRequest
             'bankTransferEnabled' => ['sometimes', 'boolean'],
             'paymongoGcashEnabled' => ['sometimes', 'boolean'],
             'paymongoMayaEnabled' => ['sometimes', 'boolean'],
+            'paymongoPaymentMethodTypes' => ['sometimes', 'array'],
+            'paymongoPaymentMethodTypes.*' => ['string', 'in:qrph,dob,gcash,paymaya,grab_pay,card,shopee_pay,brankas,billease'],
             'pricesIncludeVat' => ['sometimes', 'boolean'],
             'deliveryFeeAtCheckoutEnabled' => ['sometimes', 'boolean'],
             'abandonedCartDiscountCode' => ['sometimes', 'nullable', 'string'],

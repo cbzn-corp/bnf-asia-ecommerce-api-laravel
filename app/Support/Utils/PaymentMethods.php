@@ -6,6 +6,8 @@ namespace App\Support\Utils;
 
 final class PaymentMethods
 {
+    public const PAYMONGO = 'PAYMONGO';
+
     public const PAYMONGO_GCASH = 'PAYMONGO_GCASH';
 
     public const PAYMONGO_MAYA = 'PAYMONGO_MAYA';
@@ -20,6 +22,22 @@ final class PaymentMethods
 
     public const SUPPORT_ASSISTED = 'SUPPORT_ASSISTED';
 
+    /** @var list<string> */
+    public const PAYMONGO_CHECKOUT_TYPES = [
+        'qrph',
+        'dob',
+        'gcash',
+        'paymaya',
+        'grab_pay',
+        'card',
+        'shopee_pay',
+        'brankas',
+        'billease',
+    ];
+
+    /** @var list<string> */
+    public const DEFAULT_PAYMONGO_PAYMENT_METHOD_TYPES = ['qrph', 'dob'];
+
     /**
      * @param  array{
      *     bnplEnabled?: bool,
@@ -30,6 +48,7 @@ final class PaymentMethods
      *     paymongoMayaEnabled?: bool,
      *     paymongoEnabled?: bool,
      *     stripeEnabled?: bool,
+     *     paymongoPaymentMethodTypes?: list<string>|null,
      * }  $settings
      * @return list<string>
      */
@@ -39,8 +58,6 @@ final class PaymentMethods
         $supportAssistedCheckoutEnabled = $settings['supportAssistedCheckoutEnabled'] ?? false;
         $codEnabled = $settings['codEnabled'] ?? true;
         $bankTransferEnabled = $settings['bankTransferEnabled'] ?? true;
-        $paymongoGcashEnabled = $settings['paymongoGcashEnabled'] ?? true;
-        $paymongoMayaEnabled = $settings['paymongoMayaEnabled'] ?? true;
         $paymongoEnabled = $settings['paymongoEnabled'] ?? false;
         $stripeEnabled = $settings['stripeEnabled'] ?? false;
 
@@ -51,12 +68,8 @@ final class PaymentMethods
                 $methods[] = self::BNPL_INSTALLMENT;
             }
 
-            if ($paymongoEnabled && $paymongoGcashEnabled) {
-                $methods[] = self::PAYMONGO_GCASH;
-            }
-
-            if ($paymongoEnabled && $paymongoMayaEnabled) {
-                $methods[] = self::PAYMONGO_MAYA;
+            if ($paymongoEnabled && self::resolvePaymongoPaymentMethodTypes($settings) !== []) {
+                $methods[] = self::PAYMONGO;
             }
 
             if ($codEnabled) {
@@ -93,6 +106,7 @@ final class PaymentMethods
             $methods = [
                 self::COD,
                 self::BANK_TRANSFER,
+                self::PAYMONGO,
                 self::PAYMONGO_GCASH,
                 self::PAYMONGO_MAYA,
             ];
@@ -109,6 +123,35 @@ final class PaymentMethods
         }
 
         return [self::STRIPE_CARD];
+    }
+
+    /**
+     * Resolve PayMongo Checkout `payment_method_types` from platform settings.
+     *
+     * @param  array{paymongoPaymentMethodTypes?: list<string>|null}  $settings
+     * @return list<string>
+     */
+    public static function resolvePaymongoPaymentMethodTypes(array $settings = []): array
+    {
+        $configured = $settings['paymongoPaymentMethodTypes'] ?? null;
+        if (! is_array($configured) || $configured === []) {
+            return self::DEFAULT_PAYMONGO_PAYMENT_METHOD_TYPES;
+        }
+
+        $types = [];
+        foreach ($configured as $type) {
+            if (! is_string($type)) {
+                continue;
+            }
+            $normalized = strtolower(trim($type));
+            if (in_array($normalized, self::PAYMONGO_CHECKOUT_TYPES, true)) {
+                $types[] = $normalized;
+            }
+        }
+
+        return $types !== []
+            ? array_values(array_unique($types))
+            : self::DEFAULT_PAYMONGO_PAYMENT_METHOD_TYPES;
     }
 
     /**
@@ -152,5 +195,25 @@ final class PaymentMethods
     public static function isPaymentGatewayTestMode(array $config): bool
     {
         return self::isPaymongoTestMode($config) || self::isStripeTestMode($config);
+    }
+
+    public static function labelForPaymongoType(?string $type): ?string
+    {
+        if ($type === null || $type === '') {
+            return null;
+        }
+
+        return match (strtolower($type)) {
+            'qrph' => 'QRPh',
+            'dob' => 'Online banking (BPI / UnionBank)',
+            'gcash' => 'GCash',
+            'paymaya' => 'Maya',
+            'grab_pay' => 'GrabPay',
+            'card' => 'Card',
+            'shopee_pay' => 'ShopeePay',
+            'brankas' => 'Online banking (Brankas)',
+            'billease' => 'BillEase',
+            default => strtoupper($type),
+        };
     }
 }

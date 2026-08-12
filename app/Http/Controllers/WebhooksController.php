@@ -40,9 +40,23 @@ class WebhooksController extends Controller
 
         $valid = (bool) ($signature && $secret && $this->webhooksService->verifySignature($payload, $signature, $secret));
 
+        $orderNumber = null;
+        $paymongoPaymentType = null;
+        if ($provider === 'paymongo') {
+            $details = $this->webhooksService->extractPaymongoPaymentDetails($body, $payload);
+            $orderNumber = $details['orderNumber'];
+            $paymongoPaymentType = $details['paymongoPaymentType'];
+        } else {
+            $orderNumber = is_string($body['orderNumber'] ?? null) ? $body['orderNumber'] : null;
+            $orderNumber = $orderNumber
+                ?? (is_string(data_get($body, 'data.object.metadata.orderNumber'))
+                    ? data_get($body, 'data.object.metadata.orderNumber')
+                    : null);
+        }
+
         $this->webhooksService->logPayment(
             $provider,
-            $body['orderNumber'] ?? null,
+            $orderNumber,
             $payload,
             $valid,
         );
@@ -52,7 +66,7 @@ class WebhooksController extends Controller
         }
 
         return response()->json(
-            $this->webhooksService->markPaid($body['orderNumber'] ?? ''),
+            $this->webhooksService->markPaid($orderNumber ?? '', $paymongoPaymentType),
         );
     }
 }

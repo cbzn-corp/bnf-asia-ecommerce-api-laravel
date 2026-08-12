@@ -7,6 +7,7 @@ use App\Services\Settings\PlatformSettingsService;
 use App\Support\Config\AppSecrets;
 use App\Support\Config\AppUrls;
 use App\Support\Utils\Money;
+use App\Support\Utils\PaymentMethods;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -101,11 +102,44 @@ class PaymentsService
             ];
         }
 
+        $paymentMethodEnum = $params['paymentMethod'] instanceof PaymentMethod
+            ? $params['paymentMethod']
+            : PaymentMethod::tryFrom((string) $method);
+
+        if (! $paymentMethodEnum?->isPaymongo()) {
+            return [
+                'configured' => false,
+                'paymentSessionId' => null,
+                'paymentSessionUrl' => null,
+                'message' => 'Unsupported payment method for PayMongo.',
+            ];
+        }
+
+        $paymentMethodTypes = PaymentMethods::resolvePaymongoPaymentMethodTypes([
+            'paymongoPaymentMethodTypes' => $settings->paymongoPaymentMethodTypes,
+        ]);
+
+        // Legacy single-channel enums still pin to one type when staff uses them.
+        if ($paymentMethodEnum === PaymentMethod::PaymongoGcash) {
+            $paymentMethodTypes = ['gcash', 'grab_pay'];
+        } elseif ($paymentMethodEnum === PaymentMethod::PaymongoMaya) {
+            $paymentMethodTypes = ['paymaya'];
+        }
+
+        if ($paymentMethodTypes === []) {
+            return [
+                'configured' => false,
+                'paymentSessionId' => null,
+                'paymentSessionUrl' => null,
+                'message' => 'No PayMongo payment channels are enabled. Configure them under Settings → Payments.',
+            ];
+        }
+
         return $this->createPayMongoSession([
             'secretKey' => $paymongoSecretKey,
             'orderNumber' => $params['orderNumber'],
             'amountPHP' => (float) $params['totalAmountInPHP'],
-            'paymentMethod' => $method,
+            'paymentMethodTypes' => $paymentMethodTypes,
             'customerEmail' => $params['customerEmail'],
             'successUrl' => $successUrl,
             'cancelUrl' => $cancelUrl,
@@ -164,15 +198,11 @@ class PaymentsService
     }
 
     /**
-     * @param  array{secretKey: string, orderNumber: string, amountPHP: float, paymentMethod: string, customerEmail: string, successUrl: string, cancelUrl: string}  $params
+     * @param  array{secretKey: string, orderNumber: string, amountPHP: float, paymentMethodTypes: list<string>, customerEmail: string, successUrl: string, cancelUrl: string}  $params
      * @return array{configured: bool, paymentSessionId: string|null, paymentSessionUrl: string|null, message?: string}
      */
     private function createPayMongoSession(array $params): array
     {
-        $paymentMethodTypes = $params['paymentMethod'] === PaymentMethod::PaymongoMaya->value
-            ? ['paymaya']
-            : ['gcash', 'grab_pay'];
-
         $payload = [
             'data' => [
                 'attributes' => [
@@ -187,9 +217,10 @@ class PaymentsService
                         'name' => "Order {$params['orderNumber']}",
                         'quantity' => 1,
                     ]],
-                    'payment_method_types' => $paymentMethodTypes,
+                    'payment_method_types' => $params['paymentMethodTypes'],
                     'success_url' => $params['successUrl'],
                     'cancel_url' => $params['cancelUrl'],
+                    'reference_number' => $params['orderNumber'],
                     'metadata' => ['orderNumber' => $params['orderNumber']],
                 ],
             ],

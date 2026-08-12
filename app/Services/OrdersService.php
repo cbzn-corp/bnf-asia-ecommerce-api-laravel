@@ -1898,6 +1898,7 @@ class OrdersService
             'createdAt' => $order->createdAt,
             'guestEmail' => $order->guestEmail ?? 'Customer',
             'paymentMethod' => $order->paymentMethod->value,
+            'paymongoPaymentType' => $order->paymongoPaymentType,
             'paymentStatus' => $order->paymentStatus->value,
             'currency' => $order->currency->value,
             'totalDisplay' => $totalDisplay,
@@ -1989,6 +1990,8 @@ class OrdersService
         $data['referralPartner'] = $this->serializeReferralPartner($order);
         $data['hasSupportConversation'] = $order->relationLoaded('supportConversation')
             && $order->supportConversation !== null;
+        $data['paymongoPaymentType'] = $order->paymongoPaymentType;
+        $data['paymongoPaymentLabel'] = PaymentMethods::labelForPaymongoType($order->paymongoPaymentType);
 
         return $data;
     }
@@ -2105,6 +2108,8 @@ class OrdersService
                 ? (float) Money::toUsdFromPhp($order->totalAmountInPHP, $order->exchangeRate)
                 : (float) $order->totalAmountInPHP,
             'paymentMethod' => $order->paymentMethod->value,
+            'paymongoPaymentType' => $order->paymongoPaymentType,
+            'paymongoPaymentLabel' => PaymentMethods::labelForPaymongoType($order->paymongoPaymentType),
             'paymentStatus' => $order->paymentStatus->value,
             'shippingStatus' => $order->shippingStatus->value,
             'quoteStatus' => ($order->quoteStatus ?? QuoteStatus::None)->value,
@@ -2146,6 +2151,7 @@ class OrdersService
             'bankTransferEnabled' => $settings->bankTransferEnabled,
             'paymongoGcashEnabled' => $settings->paymongoGcashEnabled,
             'paymongoMayaEnabled' => $settings->paymongoMayaEnabled,
+            'paymongoPaymentMethodTypes' => $settings->paymongoPaymentMethodTypes,
             'paymongoEnabled' => $settings->paymongoEnabled,
             'stripeEnabled' => $settings->stripeEnabled,
         ];

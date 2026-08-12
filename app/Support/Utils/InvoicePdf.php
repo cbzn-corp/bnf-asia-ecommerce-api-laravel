@@ -9,6 +9,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 final class InvoicePdf
 {
     private const PAYMENT_LABELS = [
+        'PAYMONGO' => 'PayMongo',
         'PAYMONGO_GCASH' => 'GCash',
         'PAYMONGO_MAYA' => 'Maya',
         'STRIPE_CARD' => 'Credit / Debit Card',
@@ -28,6 +29,7 @@ final class InvoicePdf
      *     createdAt: \DateTimeInterface,
      *     guestEmail: string,
      *     paymentMethod: string,
+     *     paymongoPaymentType?: string|null,
      *     paymentStatus: string,
      *     currency: string,
      *     totalDisplay: float,
@@ -45,6 +47,10 @@ final class InvoicePdf
         $paymentMethod = $data['paymentMethod'];
         $paymentLabel = self::PAYMENT_LABELS[$paymentMethod]
             ?? ucwords(strtolower(str_replace('_', ' ', $paymentMethod)));
+        $channelLabel = PaymentMethods::labelForPaymongoType($data['paymongoPaymentType'] ?? null);
+        if ($channelLabel) {
+            $paymentLabel .= ' · '.$channelLabel;
+        }
 
         $orderItems = array_map(static function (array $item) {
             return [

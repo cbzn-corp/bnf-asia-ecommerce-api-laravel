@@ -10,6 +10,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -49,6 +50,25 @@ return Application::configure(basePath: dirname(__DIR__))
             ], Response::HTTP_BAD_REQUEST);
         });
 
+        // Symfony BadRequestException is rewritten by Laravel to a generic
+        // "Bad request." — preserve the original business message for the API.
+        $exceptions->render(function (BadRequestException $e, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            $message = $e->getMessage();
+            if ($message === '') {
+                $message = 'Bad request.';
+            }
+
+            return response()->json([
+                'statusCode' => Response::HTTP_BAD_REQUEST,
+                'message' => $message,
+                'error' => 'Bad Request',
+            ], Response::HTTP_BAD_REQUEST);
+        });
+
         $exceptions->render(function (HttpExceptionInterface $e, Request $request) {
             if (! $request->is('api/*')) {
                 return null;
@@ -56,6 +76,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
             $statusCode = $e->getStatusCode();
             $message = $e->getMessage();
+
+            // Fallback if prepareException already wrapped RequestExceptionInterface
+            if (
+                $message === 'Bad request.'
+                && $e->getPrevious() instanceof BadRequestException
+                && $e->getPrevious()->getMessage() !== ''
+            ) {
+                $message = $e->getPrevious()->getMessage();
+            }
 
             if ($message === '') {
                 $message = Response::$statusTexts[$statusCode] ?? 'Error';

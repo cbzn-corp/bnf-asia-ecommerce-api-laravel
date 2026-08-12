@@ -39,6 +39,7 @@ class PlatformSettingsService
                 'bankTransferEnabled' => true,
                 'paymongoGcashEnabled' => true,
                 'paymongoMayaEnabled' => true,
+                'paymongoPaymentMethodTypes' => PaymentMethods::DEFAULT_PAYMONGO_PAYMENT_METHOD_TYPES,
                 'pricesIncludeVat' => false,
                 'deliveryFeeAtCheckoutEnabled' => true,
             ],
@@ -94,6 +95,11 @@ class PlatformSettingsService
                 'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
                 'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
                 'deliveryFeeAtCheckoutEnabled' => $row->deliveryFeeAtCheckoutEnabled !== false,
+                'paymongoPaymentMethodTypes' => PaymentMethods::resolvePaymongoPaymentMethodTypes([
+                    'paymongoPaymentMethodTypes' => $row->paymongoPaymentMethodTypes,
+                    'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
+                    'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
+                ]),
                 'paymentTestMode' => PaymentMethods::isPaymentGatewayTestMode([
                     ...AppSecrets::getPaymentSecretKeys(),
                     'paymongoEnabled' => $row->paymongoEnabled,
@@ -214,6 +220,11 @@ class PlatformSettingsService
                 'bankTransferEnabled' => $row->bankTransferEnabled,
                 'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
                 'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
+                'paymongoPaymentMethodTypes' => PaymentMethods::resolvePaymongoPaymentMethodTypes([
+                    'paymongoPaymentMethodTypes' => $row->paymongoPaymentMethodTypes,
+                    'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
+                    'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
+                ]),
                 'pricesIncludeVat' => $row->pricesIncludeVat,
                 'deliveryFeeAtCheckoutEnabled' => $row->deliveryFeeAtCheckoutEnabled !== false,
             ],
@@ -222,6 +233,11 @@ class PlatformSettingsService
                 'bankTransferEnabled' => $row->bankTransferEnabled,
                 'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
                 'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
+                'paymongoPaymentMethodTypes' => PaymentMethods::resolvePaymongoPaymentMethodTypes([
+                    'paymongoPaymentMethodTypes' => $row->paymongoPaymentMethodTypes,
+                    'paymongoGcashEnabled' => $row->paymongoGcashEnabled,
+                    'paymongoMayaEnabled' => $row->paymongoMayaEnabled,
+                ]),
             ],
             'abandonedCartDiscountCode' => $row->abandonedCartDiscountCode,
             'paymentTestMode' => PaymentMethods::isPaymentGatewayTestMode([
@@ -256,6 +272,14 @@ class PlatformSettingsService
             if (array_key_exists($field, $dto)) {
                 $data[$field] = $dto[$field];
             }
+        }
+
+        if (array_key_exists('paymongoPaymentMethodTypes', $dto)) {
+            $data['paymongoPaymentMethodTypes'] = PaymentMethods::resolvePaymongoPaymentMethodTypes([
+                'paymongoPaymentMethodTypes' => is_array($dto['paymongoPaymentMethodTypes'])
+                    ? $dto['paymongoPaymentMethodTypes']
+                    : [],
+            ]);
         }
 
         if (array_key_exists('paymongoPublicKey', $dto)) {

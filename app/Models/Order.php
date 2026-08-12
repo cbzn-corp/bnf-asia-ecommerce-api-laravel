@@ -51,6 +51,7 @@ class Order extends Model
         'referralCode',
         'paymentSessionId',
         'paymentSessionUrl',
+        'paymongoPaymentType',
         'pickupLocationId',
         'trackingNumber',
         'carrier',
