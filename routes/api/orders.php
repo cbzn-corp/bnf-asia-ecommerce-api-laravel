@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('orders')->group(function () {
     Route::post('preview', [OrdersController::class, 'preview']);
     Route::get('track', [OrdersController::class, 'track']);
+    Route::post('resume-payment', [OrdersController::class, 'resumePayment']);
 
     Route::middleware('bnf.authenticate.optional')->post('checkout', [OrdersController::class, 'checkout']);
 

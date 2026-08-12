@@ -71,6 +71,25 @@ class EmailService
     {
         $symbol = $params['currency'] === 'USD' ? '$' : '₱';
         $total = $symbol.number_format($params['totalAmount'], 2, '.', ',');
+        $awaitingOnlinePayment = (bool) ($params['awaitingOnlinePayment'] ?? false);
+
+        if ($awaitingOnlinePayment) {
+            $payUrl = is_string($params['paymentSessionUrl'] ?? null) ? $params['paymentSessionUrl'] : null;
+            $subject = "Complete your payment — {$params['orderNumber']}";
+            $body = implode("\n", array_filter([
+                "We received your order {$params['orderNumber']}, but payment is not complete yet.",
+                'Payment method: '.str_replace('_', ' ', $params['paymentMethod']),
+                "Total due: {$total}",
+                '',
+                $payUrl ? "Complete payment here: {$payUrl}" : 'Return to the storefront order page to finish payment.',
+                '',
+                'If you already paid, you can ignore this email — we will update your order when payment clears.',
+                'Thank you for shopping with BNF Asia.',
+            ]));
+
+            return $this->dispatch($params['to'], $subject, $body);
+        }
+
         $attachments = isset($params['invoicePdf'])
             ? [['filename' => "invoice-{$params['orderNumber']}.pdf", 'content' => $params['invoicePdf']]]
             : null;

@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Models\Order;
 use App\Models\PaymentLog;
+use App\Services\Email\EmailService;
+use App\Support\Utils\Money;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 
@@ -12,6 +15,7 @@ class WebhooksService
 {
     public function __construct(
         private readonly ReferralsService $referralsService,
+        private readonly EmailService $emailService,
     ) {}
 
     /**
@@ -169,20 +173,51 @@ class WebhooksService
             throw new BadRequestException('orderNumber is required');
         }
 
-        $order = Order::query()->where('orderNumber', $orderNumber)->first();
+        $order = Order::query()
+            ->where('orderNumber', $orderNumber)
+            ->with(['orderItems.product:id,name,slug,images', 'user:id,email'])
+            ->first();
         if (! $order) {
             Log::warning("PayMongo webhook: order not found: {$orderNumber}");
             throw new BadRequestException("Order not found: {$orderNumber}");
         }
 
+        $wasUnpaid = $order->paymentStatus !== PaymentStatus::Paid;
         $update = ['paymentStatus' => PaymentStatus::Paid];
         if ($paymongoPaymentType !== null && $paymongoPaymentType !== '') {
             $update['paymongoPaymentType'] = $paymongoPaymentType;
         }
         $order->update($update);
-        $order = $order->fresh();
+        $order = $order->fresh(['orderItems.product:id,name,slug,images', 'user:id,email']);
 
         $this->referralsService->onOrderPaid($order);
+
+        // Place-order for online gateways only sent "awaiting payment" — send full confirmation once Paid.
+        if (
+            $wasUnpaid
+            && $order
+            && ($order->paymentMethod->isPaymongo() || $order->paymentMethod === PaymentMethod::StripeCard)
+        ) {
+            $to = $order->guestEmail ?: $order->user?->email;
+            if ($to) {
+                try {
+                    $this->emailService->sendOrderConfirmationEmail([
+                        'to' => $to,
+                        'orderNumber' => $order->orderNumber,
+                        'paymentMethod' => $order->paymentMethod->value,
+                        'totalAmount' => $order->currency->value === 'USD'
+                            ? (float) Money::toUsdFromPhp($order->totalAmountInPHP, $order->exchangeRate)
+                            : (float) $order->totalAmountInPHP,
+                        'currency' => $order->currency->value,
+                        'awaitingOnlinePayment' => false,
+                    ]);
+                } catch (\Throwable $err) {
+                    Log::warning('Paid confirmation email failed: '.$err->getMessage(), [
+                        'orderNumber' => $order->orderNumber,
+                    ]);
+                }
+            }
+        }
 
         return $order;
     }

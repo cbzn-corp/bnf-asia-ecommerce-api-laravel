@@ -547,6 +547,8 @@ class OrdersService
         }
 
         $invoicePdf = $this->buildInvoicePdfFromOrder($order);
+        $awaitingOnlinePayment = $paymentMethod->isPaymongo()
+            || $paymentMethod === PaymentMethod::StripeCard;
         $this->emailService->sendOrderConfirmationEmail([
             'to' => $dto['guestEmail'],
             'orderNumber' => $order->orderNumber,
@@ -555,7 +557,9 @@ class OrdersService
                 ? (float) Money::toUsdFromPhp($order->totalAmountInPHP, $order->exchangeRate)
                 : (float) $order->totalAmountInPHP,
             'currency' => $order->currency->value,
-            'invoicePdf' => $invoicePdf,
+            'invoicePdf' => $awaitingOnlinePayment ? null : $invoicePdf,
+            'awaitingOnlinePayment' => $awaitingOnlinePayment,
+            'paymentSessionUrl' => $paymentSession['paymentSessionUrl'] ?? null,
         ]);
 
         $result = $this->serializePublicOrder($order);
@@ -565,6 +569,70 @@ class OrdersService
         $result['totalAmountInUSD'] = $order->currency === Currency::USD
             ? Money::toUsdFromPhp($order->totalAmountInPHP, $order->exchangeRate)
             : null;
+
+        return $result;
+    }
+
+    /**
+     * Recreate a PayMongo/Stripe checkout session for an unpaid online order.
+     *
+     * @return array<string, mixed>
+     */
+    public function resumePayment(string $orderNumber, string $email): array
+    {
+        $order = Order::query()
+            ->where('orderNumber', $orderNumber)
+            ->with([
+                'orderItems.product:id,name,slug,images',
+                'user:id,email',
+            ])
+            ->first();
+
+        if (! $order) {
+            throw new NotFoundHttpException('Order not found.');
+        }
+
+        $guestEmail = strtolower(trim((string) $order->guestEmail));
+        $userEmail = strtolower(trim((string) ($order->user?->email ?? '')));
+        $provided = strtolower(trim($email));
+        if ($provided === '' || ($provided !== $guestEmail && $provided !== $userEmail)) {
+            throw new NotFoundHttpException('Order not found.');
+        }
+
+        if ($order->paymentStatus === PaymentStatus::Paid) {
+            $result = $this->serializePublicOrder($order);
+            $result['paymentSessionUrl'] = null;
+            $result['paymentMessage'] = 'This order is already paid.';
+
+            return $result;
+        }
+
+        if (! $order->paymentMethod->isPaymongo() && $order->paymentMethod !== PaymentMethod::StripeCard) {
+            throw new BadRequestException('This order does not require online payment.');
+        }
+
+        $paymentSession = $this->paymentsService->createPaymentSession([
+            'orderNumber' => $order->orderNumber,
+            'orderId' => $order->id,
+            'paymentMethod' => $order->paymentMethod,
+            'totalAmountInPHP' => $order->totalAmountInPHP,
+            'exchangeRate' => $order->exchangeRate,
+            'currency' => $order->currency->value,
+            'customerEmail' => $order->guestEmail ?? $order->user?->email ?? $email,
+        ]);
+
+        if ($paymentSession['paymentSessionId'] || $paymentSession['paymentSessionUrl']) {
+            $order->update([
+                'paymentSessionId' => $paymentSession['paymentSessionId'],
+                'paymentSessionUrl' => $paymentSession['paymentSessionUrl'],
+            ]);
+            $order = $order->fresh(['orderItems.product:id,name,slug,images', 'user:id,email']);
+        }
+
+        $result = $this->serializePublicOrder($order);
+        $result['paymentSessionUrl'] = $paymentSession['paymentSessionUrl'];
+        $result['paymentConfigured'] = $paymentSession['configured'];
+        $result['paymentMessage'] = $paymentSession['message'] ?? null;
 
         return $result;
     }

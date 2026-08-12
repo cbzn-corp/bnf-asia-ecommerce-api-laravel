@@ -51,6 +51,18 @@ class OrdersController extends Controller
         return response()->json($this->ordersService->trackOrder($data['orderNumber'], $data['email']));
     }
 
+    public function resumePayment(Request $request)
+    {
+        $data = $request->validate([
+            'orderNumber' => ['required', 'string'],
+            'email' => ['required', 'email'],
+        ]);
+
+        return response()->json(
+            $this->ordersService->resumePayment($data['orderNumber'], $data['email']),
+        );
+    }
+
     public function checkout(Request $request)
     {
         $data = $request->validate([

@@ -68,8 +68,9 @@ class PaymentsService
 
         $settings = $this->platformSettings->getRaw();
         $baseUrl = AppUrls::getStorefrontUrl();
-        $successUrl = "{$baseUrl}/order-confirmation?order={$params['orderNumber']}&email=".rawurlencode($params['customerEmail']);
-        $cancelUrl = "{$baseUrl}/checkout";
+        $emailQuery = rawurlencode($params['customerEmail']);
+        $successUrl = "{$baseUrl}/order-confirmation?order={$params['orderNumber']}&email={$emailQuery}";
+        $cancelUrl = "{$baseUrl}/order-confirmation?order={$params['orderNumber']}&email={$emailQuery}&payment=cancelled";
 
         if ($method === PaymentMethod::StripeCard->value) {
             $stripeSecretKey = AppSecrets::getStripeSecretKey();
