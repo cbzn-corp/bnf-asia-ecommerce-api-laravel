@@ -39,6 +39,7 @@ class UpdatePlatformSettingsRequest extends FormRequest
             'storeAddress' => ['sometimes', 'nullable', 'string'],
             'checkoutOrderNotesEnabled' => ['sometimes', 'boolean'],
             'guestCheckoutEnabled' => ['sometimes', 'boolean'],
+            'requireLoginToAddToCart' => ['sometimes', 'boolean'],
             'compareEnabled' => ['sometimes', 'boolean'],
             'reviewsEnabled' => ['sometimes', 'boolean'],
             'reviewsSubmissionEnabled' => ['sometimes', 'boolean'],

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\AbandonedCart;
+use App\Models\User;
 use App\Services\Email\EmailService;
 use App\Services\Settings\PlatformSettingsService;
 use App\Support\Config\AppUrls;
@@ -56,16 +57,58 @@ class AbandonedCartsService
         ]);
     }
 
-  /**
-   * @return \Illuminate\Database\Eloquent\Collection<int, AbandonedCart>
-   */
-    public function findAll()
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function findAll(): array
     {
-        return AbandonedCart::query()
+        $carts = AbandonedCart::query()
             ->whereNull('recoveredAt')
             ->orderByDesc('lastActivityAt')
             ->limit(100)
             ->get();
+
+        $userIds = $carts->pluck('userId')->filter()->unique()->values()->all();
+        $users = $userIds === []
+            ? collect()
+            : User::query()->whereIn('id', $userIds)->get(['id', 'email'])->keyBy('id');
+
+        return $carts->map(function (AbandonedCart $cart) use ($users) {
+            $user = $cart->userId ? $users->get($cart->userId) : null;
+            $items = is_array($cart->items) ? $cart->items : [];
+            $lineItems = [];
+            foreach ($items as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+                $qty = (int) ($item['qty'] ?? $item['quantity'] ?? 1);
+                $price = (float) ($item['priceInPHP'] ?? 0);
+                $lineItems[] = [
+                    'productId' => $item['productId'] ?? null,
+                    'variantId' => $item['variantId'] ?? null,
+                    'name' => $item['name'] ?? 'Item',
+                    'variantName' => $item['variantName'] ?? null,
+                    'slug' => $item['slug'] ?? null,
+                    'qty' => $qty,
+                    'priceInPHP' => $price,
+                    'lineTotalInPHP' => $price * $qty,
+                    'image' => $item['image'] ?? null,
+                ];
+            }
+
+            return [
+                'id' => $cart->id,
+                'email' => $cart->email ?? $user?->email,
+                'userId' => $cart->userId,
+                'customerEmail' => $user?->email ?? $cart->email,
+                'items' => $cart->items,
+                'lineItems' => $lineItems,
+                'itemCount' => array_sum(array_column($lineItems, 'qty')),
+                'lastActivityAt' => $cart->lastActivityAt,
+                'recoveryEmailSentAt' => $cart->recoveryEmailSentAt,
+                'recoveryToken' => $cart->recoveryToken,
+            ];
+        })->all();
     }
 
     /**

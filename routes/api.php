@@ -14,6 +14,7 @@ require __DIR__.'/api/wishlist.php';
 require __DIR__.'/api/reviews.php';
 require __DIR__.'/api/stock-alerts.php';
 require __DIR__.'/api/abandoned-carts.php';
+require __DIR__.'/api/cart-events.php';
 require __DIR__.'/api/analytics.php';
 require __DIR__.'/api/audit.php';
 require __DIR__.'/api/logs.php';
