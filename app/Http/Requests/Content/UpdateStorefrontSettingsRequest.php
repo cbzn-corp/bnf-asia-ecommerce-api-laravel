@@ -35,6 +35,13 @@ class UpdateStorefrontSettingsRequest extends FormRequest
             'phone' => ['sometimes', 'string'],
             'listingPages' => ['sometimes', 'array'],
             'pageCopy' => ['sometimes', 'array'],
+            'chatWidget' => ['sometimes', 'array'],
+            'chatWidget.enabled' => ['sometimes', 'boolean'],
+            'chatWidget.greeting' => ['sometimes', 'string', 'max:200'],
+            'chatWidget.messengers' => ['sometimes', 'array', 'max:20'],
+            'chatWidget.messengers.*.type' => ['sometimes', 'string', 'in:whatsapp,messenger,viber,telegram,line,email,phone,custom'],
+            'chatWidget.messengers.*.label' => ['sometimes', 'string', 'max:80'],
+            'chatWidget.messengers.*.url' => ['sometimes', 'string', 'max:500'],
         ];
     }
 }

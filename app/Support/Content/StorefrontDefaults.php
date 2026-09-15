@@ -45,6 +45,18 @@ final class StorefrontDefaults
   }
 
   /**
+   * @return array{enabled: bool, greeting: string, messengers: list<array{type: string, label: string, url: string}>}
+   */
+  public static function chatWidget(): array
+  {
+    return [
+      'enabled' => false,
+      'greeting' => 'Chat with us',
+      'messengers' => [],
+    ];
+  }
+
+  /**
    * @return array<string, string>
    */
   public static function pageCopy(): array
@@ -124,6 +136,7 @@ final class StorefrontDefaults
       'phone' => '+63 2 8888 0000',
       'listingPages' => self::listingPages(),
       'pageCopy' => self::pageCopy(),
+      'chatWidget' => self::chatWidget(),
     ];
   }
 

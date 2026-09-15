@@ -116,6 +116,8 @@ class ContentService
             $dto['pdpFreeShippingNote'] = trim((string) ($dto['pdpFreeShippingNote'] ?? '')) ?: null;
         }
 
+        $currentChatWidget = $current['chatWidget'] ?? StorefrontDefaults::chatWidget();
+
         $merged = StorefrontUtils::normalizeStorefrontSettings([
             ...$current,
             ...$dto,
@@ -136,6 +138,13 @@ class ContentService
                     : $current['listingPages']['sale'],
             ] : $current['listingPages'],
             'pageCopy' => isset($dto['pageCopy']) ? [...$current['pageCopy'], ...$dto['pageCopy']] : $current['pageCopy'],
+            'chatWidget' => isset($dto['chatWidget'])
+                ? [
+                    ...$currentChatWidget,
+                    ...$dto['chatWidget'],
+                    'messengers' => $dto['chatWidget']['messengers'] ?? $currentChatWidget['messengers'],
+                ]
+                : $currentChatWidget,
         ]);
 
         $this->persistBlock(self::STOREFRONT_SETTINGS_KEY, $merged);

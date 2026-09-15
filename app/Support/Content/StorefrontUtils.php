@@ -62,6 +62,59 @@ final class StorefrontUtils
     return $links !== [] ? $links : $fallback;
   }
 
+  /** @var list<string> */
+  private const MESSENGER_TYPES = ['whatsapp', 'messenger', 'viber', 'telegram', 'line', 'email', 'phone', 'custom'];
+
+  /**
+   * @return list<array{type: string, label: string, url: string}>
+   */
+  private static function normalizeChatMessengers(mixed $raw): array
+  {
+    if (! is_array($raw)) {
+      return [];
+    }
+
+    $links = [];
+    foreach ($raw as $item) {
+      $value = is_array($item) ? $item : [];
+      $label = trim((string) ($value['label'] ?? ''));
+      $url = trim((string) ($value['url'] ?? ''));
+      if ($label === '' || $url === '') {
+        continue;
+      }
+
+      $type = strtolower(trim((string) ($value['type'] ?? 'custom')));
+      if (! in_array($type, self::MESSENGER_TYPES, true)) {
+        $type = 'custom';
+      }
+
+      $links[] = [
+        'type' => $type,
+        'label' => $label,
+        'url' => $url,
+      ];
+    }
+
+    return $links;
+  }
+
+  /**
+   * @return array{enabled: bool, greeting: string, messengers: list<array{type: string, label: string, url: string}>}
+   */
+  private static function normalizeChatWidget(mixed $raw): array
+  {
+    $defaults = StorefrontDefaults::chatWidget();
+    $value = is_array($raw) ? $raw : [];
+
+    return [
+      'enabled' => array_key_exists('enabled', $value)
+        ? filter_var($value['enabled'], FILTER_VALIDATE_BOOLEAN)
+        : $defaults['enabled'],
+      'greeting' => trim((string) ($value['greeting'] ?? $defaults['greeting'])) ?: $defaults['greeting'],
+      'messengers' => self::normalizeChatMessengers($value['messengers'] ?? null),
+    ];
+  }
+
   /**
    * @param  list<array{label: string, url: string}>  $fallback
    * @return list<array{label: string, url: string}>
@@ -172,6 +225,7 @@ final class StorefrontUtils
       'phone' => (string) ($value['phone'] ?? $defaults['phone']),
       'listingPages' => self::normalizeListingPages($value['listingPages'] ?? null),
       'pageCopy' => self::normalizePageCopy($value['pageCopy'] ?? null),
+      'chatWidget' => self::normalizeChatWidget($value['chatWidget'] ?? null),
     ];
   }
 
