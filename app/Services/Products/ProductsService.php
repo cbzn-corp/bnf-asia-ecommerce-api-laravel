@@ -649,23 +649,57 @@ class ProductsService
   {
     $failed = [];
     $updated = 0;
+    $stockAlertsPending = [];
+
+    $categories = Category::query()->select(['id', 'name'])->get();
+    $categoryIdByName = [];
+    foreach ($categories as $category) {
+      $categoryIdByName[strtolower($category->name)] = $category->id;
+    }
+
+    $ids = array_values(array_unique(array_map(
+      fn (array $item) => (string) $item['id'],
+      $updates,
+    )));
+
+    $products = Product::query()
+      ->whereIn('id', $ids)
+      ->withCount('variants')
+      ->get()
+      ->keyBy('id');
+
+    $slugsToCheck = [];
+    foreach ($updates as $item) {
+      $slug = trim((string) ($item['slug'] ?? ''));
+      if ($slug !== '') {
+        $slugsToCheck[] = $slug;
+      }
+    }
+
+    $slugOwners = [];
+    if ($slugsToCheck) {
+      foreach (Product::query()->whereIn('slug', array_values(array_unique($slugsToCheck)))->get(['id', 'slug']) as $row) {
+        $slugOwners[$row->slug] = $row->id;
+      }
+    }
 
     foreach ($updates as $item) {
-      $itemId = $item['id'];
+      $itemId = (string) $item['id'];
       try {
-        $id = $itemId;
+        $product = $products->get($itemId);
+        if (! $product) {
+          throw new NotFoundHttpException("Product not found: {$itemId}");
+        }
+
         $categoryName = $item['categoryName'] ?? null;
         unset($item['id'], $item['categoryName']);
 
-        if ($categoryName && trim($categoryName) !== '') {
-          $category = Category::query()
-            ->whereRaw('LOWER(name) = ?', [strtolower(trim($categoryName))])
-            ->first();
-
-          if (! $category) {
+        if ($categoryName && trim((string) $categoryName) !== '') {
+          $resolvedCategoryId = $categoryIdByName[strtolower(trim((string) $categoryName))] ?? null;
+          if (! $resolvedCategoryId) {
             throw new BadRequestHttpException("Category not found: {$categoryName}");
           }
-          $item['categoryId'] = $category->id;
+          $item['categoryId'] = $resolvedCategoryId;
         }
 
         $payload = array_filter($item, fn ($value) => $value !== null && $value !== '');
@@ -674,7 +708,37 @@ class ProductsService
           throw new BadRequestHttpException('No fields to update');
         }
 
-        $this->update($id, $payload);
+        if (! empty($payload['slug'])) {
+          $ownerId = $slugOwners[$payload['slug']] ?? null;
+          if ($ownerId && $ownerId !== $itemId) {
+            throw new BadRequestHttpException("Slug already exists: {$payload['slug']}");
+          }
+        }
+
+        $variantCount = (int) $product->variants_count;
+        if ($variantCount > 0 && array_key_exists('stockQuantity', $payload)) {
+          unset($payload['stockQuantity']);
+        }
+
+        $data = $this->productData($payload);
+        if (! $data) {
+          throw new BadRequestHttpException('No fields to update');
+        }
+
+        $previousStock = (int) $product->stockQuantity;
+        $product->update($data);
+
+        if (! empty($data['slug'])) {
+          $slugOwners[$data['slug']] = $itemId;
+        }
+
+        if (array_key_exists('stockQuantity', $payload) && $variantCount === 0) {
+          $newStock = (int) ($data['stockQuantity'] ?? $product->stockQuantity);
+          if ($previousStock <= 0 && $newStock > 0) {
+            $stockAlertsPending[] = $itemId;
+          }
+        }
+
         $updated++;
       } catch (\Throwable $error) {
         $failed[] = [
@@ -682,6 +746,14 @@ class ProductsService
           'error' => $error->getMessage(),
         ];
       }
+    }
+
+    foreach (array_values(array_unique($stockAlertsPending)) as $productId) {
+      $this->stockAlerts->notifyForProduct($productId);
+    }
+
+    if ($updated > 0) {
+      $this->invalidateCatalogCache();
     }
 
     return ['updated' => $updated, 'failed' => $failed, 'total' => count($updates)];
