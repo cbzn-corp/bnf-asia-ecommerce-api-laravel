@@ -1051,16 +1051,34 @@ class ProductsService
     $affectedProductIds = [];
     $updated = 0;
 
+    $ids = array_values(array_unique(array_map(
+      fn (array $item) => (string) $item['id'],
+      $updates,
+    )));
+
+    $variants = ProductVariant::query()
+      ->whereIn('id', $ids)
+      ->get()
+      ->keyBy('id');
+
+    $allowedFields = [
+      'name', 'sku', 'options', 'priceInPHP', 'compareAtPrice',
+      'stockQuantity', 'weightInGrams', 'images', 'isActive', 'sortOrder',
+    ];
+
     foreach ($updates as $item) {
+      $itemId = (string) $item['id'];
       try {
-        $variant = ProductVariant::query()->find($item['id']);
+        $variant = $variants->get($itemId);
         if (! $variant) {
           throw new NotFoundHttpException('Variant not found');
         }
 
-        $id = $item['id'];
         unset($item['id']);
-        $payload = array_filter($item, fn ($value) => $value !== null && $value !== '');
+        $payload = array_filter(
+          array_intersect_key($item, array_flip($allowedFields)),
+          fn ($value) => $value !== null && $value !== '',
+        );
 
         if (! $payload) {
           throw new BadRequestHttpException('No fields to update');
@@ -1071,7 +1089,7 @@ class ProductsService
         $updated++;
       } catch (\Throwable $error) {
         $failed[] = [
-          'id' => $item['id'] ?? 'unknown',
+          'id' => $itemId,
           'error' => $error->getMessage(),
         ];
       }
