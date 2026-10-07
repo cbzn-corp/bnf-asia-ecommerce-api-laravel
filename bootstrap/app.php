@@ -15,6 +15,24 @@ use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
+if (! function_exists('nestHttpErrorLabel')) {
+    function nestHttpErrorLabel(int $statusCode): string
+    {
+        return match ($statusCode) {
+            Response::HTTP_BAD_REQUEST => 'Bad Request',
+            Response::HTTP_UNAUTHORIZED => 'Unauthorized',
+            Response::HTTP_FORBIDDEN => 'Forbidden',
+            Response::HTTP_NOT_FOUND => 'Not Found',
+            Response::HTTP_METHOD_NOT_ALLOWED => 'Method Not Allowed',
+            Response::HTTP_CONFLICT => 'Conflict',
+            Response::HTTP_UNPROCESSABLE_ENTITY => 'Unprocessable Entity',
+            Response::HTTP_TOO_MANY_REQUESTS => 'Too Many Requests',
+            Response::HTTP_INTERNAL_SERVER_ERROR => 'Internal Server Error',
+            default => Response::$statusTexts[$statusCode] ?? 'Error',
+        };
+    }
+}
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -98,21 +116,3 @@ return Application::configure(basePath: dirname(__DIR__))
             ], $statusCode);
         });
     })->create();
-
-if (! function_exists('nestHttpErrorLabel')) {
-    function nestHttpErrorLabel(int $statusCode): string
-    {
-        return match ($statusCode) {
-            Response::HTTP_BAD_REQUEST => 'Bad Request',
-            Response::HTTP_UNAUTHORIZED => 'Unauthorized',
-            Response::HTTP_FORBIDDEN => 'Forbidden',
-            Response::HTTP_NOT_FOUND => 'Not Found',
-            Response::HTTP_METHOD_NOT_ALLOWED => 'Method Not Allowed',
-            Response::HTTP_CONFLICT => 'Conflict',
-            Response::HTTP_UNPROCESSABLE_ENTITY => 'Unprocessable Entity',
-            Response::HTTP_TOO_MANY_REQUESTS => 'Too Many Requests',
-            Response::HTTP_INTERNAL_SERVER_ERROR => 'Internal Server Error',
-            default => Response::$statusTexts[$statusCode] ?? 'Error',
-        };
-    }
-}
