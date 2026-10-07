@@ -29,6 +29,7 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'email',
         'passwordHash',
+        'googleSub',
         'roleId',
         'isActive',
         'marketingOptIn',
@@ -48,7 +49,7 @@ class User extends Authenticatable implements JWTSubject
 
     public function getAuthPassword(): string
     {
-        return $this->passwordHash;
+        return (string) ($this->passwordHash ?? '');
     }
 
     public function getJWTIdentifier(): mixed

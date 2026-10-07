@@ -8,6 +8,7 @@ use App\Http\Middleware\RequireStaff;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
@@ -24,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [
-            \Illuminate\Http\Middleware\HandleCors::class,
+            HandleCors::class,
         ]);
 
         $middleware->alias([
@@ -98,18 +99,20 @@ return Application::configure(basePath: dirname(__DIR__))
         });
     })->create();
 
-function nestHttpErrorLabel(int $statusCode): string
-{
-    return match ($statusCode) {
-        Response::HTTP_BAD_REQUEST => 'Bad Request',
-        Response::HTTP_UNAUTHORIZED => 'Unauthorized',
-        Response::HTTP_FORBIDDEN => 'Forbidden',
-        Response::HTTP_NOT_FOUND => 'Not Found',
-        Response::HTTP_METHOD_NOT_ALLOWED => 'Method Not Allowed',
-        Response::HTTP_CONFLICT => 'Conflict',
-        Response::HTTP_UNPROCESSABLE_ENTITY => 'Unprocessable Entity',
-        Response::HTTP_TOO_MANY_REQUESTS => 'Too Many Requests',
-        Response::HTTP_INTERNAL_SERVER_ERROR => 'Internal Server Error',
-        default => Response::$statusTexts[$statusCode] ?? 'Error',
-    };
+if (! function_exists('nestHttpErrorLabel')) {
+    function nestHttpErrorLabel(int $statusCode): string
+    {
+        return match ($statusCode) {
+            Response::HTTP_BAD_REQUEST => 'Bad Request',
+            Response::HTTP_UNAUTHORIZED => 'Unauthorized',
+            Response::HTTP_FORBIDDEN => 'Forbidden',
+            Response::HTTP_NOT_FOUND => 'Not Found',
+            Response::HTTP_METHOD_NOT_ALLOWED => 'Method Not Allowed',
+            Response::HTTP_CONFLICT => 'Conflict',
+            Response::HTTP_UNPROCESSABLE_ENTITY => 'Unprocessable Entity',
+            Response::HTTP_TOO_MANY_REQUESTS => 'Too Many Requests',
+            Response::HTTP_INTERNAL_SERVER_ERROR => 'Internal Server Error',
+            default => Response::$statusTexts[$statusCode] ?? 'Error',
+        };
+    }
 }

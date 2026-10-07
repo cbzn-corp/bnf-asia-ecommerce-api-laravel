@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Auth;
 
 use App\Config\Permissions;
-use App\Enums\PaymentStatus;
-use App\Enums\ShippingStatus;
 use App\Models\Order;
 use App\Models\Role;
 use App\Models\User;
@@ -16,6 +14,7 @@ use App\Services\Reviews\ReviewsService;
 use App\Services\Settings\PlatformSettingsService;
 use App\Support\Auth\AuthUser;
 use App\Support\Config\AppUrls;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
@@ -34,6 +33,7 @@ class AuthService
         private readonly EmailService $emailService,
         private readonly PlatformSettingsService $platformSettings,
         private readonly ReviewsService $reviewsService,
+        private readonly GoogleIdTokenVerifier $googleIdTokenVerifier,
     ) {}
 
     /**
@@ -55,7 +55,7 @@ class AuthService
             throw new UnauthorizedHttpException('', 'Account is disabled');
         }
 
-        if (! Hash::check($dto['password'], $user->passwordHash)) {
+        if (! $this->passwordMatches($user, $dto['password'])) {
             throw new UnauthorizedHttpException('', 'Invalid credentials');
         }
 
@@ -103,18 +103,28 @@ class AuthService
             ->first();
 
         if ($user === null || $user->role?->key !== Permissions::CUSTOMER_ROLE_KEY) {
-            throw new UnauthorizedHttpException('Invalid credentials');
+            throw new UnauthorizedHttpException('', 'Invalid credentials');
         }
 
         if (! $user->isActive) {
-            throw new UnauthorizedHttpException('Account is disabled');
+            throw new UnauthorizedHttpException('', 'Account is disabled');
         }
 
-        if (! Hash::check($dto['password'], $user->passwordHash)) {
-            throw new UnauthorizedHttpException('Invalid credentials');
+        if (! $this->passwordMatches($user, $dto['password'])) {
+            throw new UnauthorizedHttpException('', 'Invalid credentials');
         }
 
         return $this->issueToken($user);
+    }
+
+    /**
+     * @return array{accessToken: string, user: array<string, mixed>}
+     */
+    public function customerLoginWithGoogle(string $idToken): array
+    {
+        $identity = $this->googleIdTokenVerifier->verify($idToken);
+
+        return $this->issueToken($this->findOrCreateCustomerForGoogle($identity['sub'], $identity['email']));
     }
 
     public function validateUser(string $userId): ?AuthUser
@@ -279,7 +289,7 @@ class AuthService
             throw new UnauthorizedHttpException('', 'Account is disabled');
         }
 
-        if (! Hash::check($currentPassword, $user->passwordHash)) {
+        if (! $this->passwordMatches($user, $currentPassword)) {
             throw new BadRequestHttpException('Current password is incorrect.');
         }
 
@@ -425,7 +435,11 @@ class AuthService
             throw new UnauthorizedHttpException('', 'Account is disabled');
         }
 
-        if (! Hash::check($currentPassword, $user->passwordHash)) {
+        if ($user->passwordHash === null || $user->passwordHash === '') {
+            throw new BadRequestHttpException('This account has no password yet. Use forgot password to set one.');
+        }
+
+        if (! $this->passwordMatches($user, $currentPassword)) {
             throw new BadRequestHttpException('Current password is incorrect.');
         }
 
@@ -453,6 +467,74 @@ class AuthService
             isStaff: (bool) $role?->isStaff,
             permissions: Permissions::sanitizePermissions(array_values($role?->permissions ?? [])),
         );
+    }
+
+    private function findOrCreateCustomerForGoogle(string $sub, string $email, bool $retry = false): User
+    {
+        $bySub = User::query()->where('googleSub', $sub)->with('role')->first();
+        if ($bySub !== null) {
+            $this->assertActiveCustomer($bySub);
+
+            return $bySub;
+        }
+
+        $byEmail = User::query()->where('email', $email)->with('role')->first();
+        if ($byEmail !== null) {
+            $this->assertActiveCustomer($byEmail);
+
+            if ($byEmail->googleSub !== null && $byEmail->googleSub !== $sub) {
+                throw new UnauthorizedHttpException('', 'Google sign-in failed.');
+            }
+
+            if ($byEmail->googleSub !== $sub) {
+                $byEmail->update(['googleSub' => $sub]);
+            }
+
+            return $byEmail;
+        }
+
+        $customerRole = Role::query()->where('key', Permissions::CUSTOMER_ROLE_KEY)->first();
+
+        if ($customerRole === null) {
+            throw new BadRequestHttpException('Customer role is not configured.');
+        }
+
+        try {
+            $user = User::create([
+                'email' => $email,
+                'passwordHash' => null,
+                'googleSub' => $sub,
+                'roleId' => $customerRole->id,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            if ($retry) {
+                throw new UnauthorizedHttpException('', 'Google sign-in failed.');
+            }
+
+            return $this->findOrCreateCustomerForGoogle($sub, $email, true);
+        }
+
+        return $user->load('role');
+    }
+
+    private function assertActiveCustomer(User $user): void
+    {
+        if ($user->role?->key !== Permissions::CUSTOMER_ROLE_KEY) {
+            throw new UnauthorizedHttpException('', 'This email cannot sign in as a customer.');
+        }
+
+        if (! $user->isActive) {
+            throw new UnauthorizedHttpException('', 'Account is disabled');
+        }
+    }
+
+    private function passwordMatches(User $user, string $password): bool
+    {
+        if ($user->passwordHash === null || $user->passwordHash === '') {
+            return false;
+        }
+
+        return Hash::check($password, $user->passwordHash);
     }
 
     /**

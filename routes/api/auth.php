@@ -10,6 +10,7 @@ Route::prefix('auth')->group(function (): void {
     Route::post('customer/register', [AuthController::class, 'customerRegister']);
     Route::post('customer/register-from-order', [AuthController::class, 'registerFromOrder']);
     Route::post('customer/login', [AuthController::class, 'customerLogin']);
+    Route::post('customer/google', [AuthController::class, 'customerGoogle']);
     Route::post('customer/forgot-password', [AuthController::class, 'customerForgotPassword']);
     Route::post('customer/reset-password', [AuthController::class, 'customerResetPassword']);
 

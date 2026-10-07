@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Requests\Auth\CustomerLoginRequest;
 use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\GoogleLoginRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterFromOrderRequest;
 use App\Http\Requests\Auth\RegisterRequest;
@@ -49,6 +50,11 @@ class AuthController extends Controller
     public function customerLogin(CustomerLoginRequest $request): JsonResponse
     {
         return response()->json($this->authService->customerLogin($request->validated()));
+    }
+
+    public function customerGoogle(GoogleLoginRequest $request): JsonResponse
+    {
+        return response()->json($this->authService->customerLoginWithGoogle($request->validated('credential')));
     }
 
     public function customerForgotPassword(ForgotPasswordRequest $request): JsonResponse
